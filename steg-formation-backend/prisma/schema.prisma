@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  nomRole     String   @unique @map("nom_role") @db.VarChar(50)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  utilisateurs Utilisateur[]
+
+  @@map("roles")
+}
+model Utilisateur {
+  id            Int       @id @default(autoincrement())
+  nom           String    @db.VarChar(100)
+  prenom        String    @db.VarChar(100)
+  email         String    @unique @db.VarChar(191)
+  motDePasse    String    @map("mot_de_passe") @db.VarChar(255)
+  matricule     String    @unique @db.VarChar(50)
+  college       String?   @db.VarChar(100)
+  genre         Genre
+  dateNaissance DateTime? @map("date_naissance") @db.Date
+  roleId        Int       @map("role_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  formateur Formateur?
+
+  @@map("utilisateurs")
+}
+
+model Formateur {
+  id             Int      @id @default(autoincrement())
+  utilisateurId  Int      @unique @map("utilisateur_id")
+  specialite     String?  @db.VarChar(200)
+  qualifications String?  @db.Text
+  disponibilites Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+
+  @@map("formateurs")
+}
+
+
+
+enum Genre {
+  Male
+  Female
+}

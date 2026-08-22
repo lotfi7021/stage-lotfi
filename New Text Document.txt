@@ -1,0 +1,31 @@
+Voici mon audit production-ready du projet et la feuille de route. Je note d'abord l'existant correct  JWT httpOnly + cookie, RBAC, validation express-validator, Prisma avec migrations, proxy Vite.
+🔴 Audit — ce qui bloque une mise en prod
+Backend
+Problème	Impact
+Pas de helmet (headers sécurité)	XSSclickjacking
+Pas de rate-limiting sur login et register	Brute force du mot de passe
+JWT_SECRET non vérifié au démarrage	Secret faibleabsent = risque critique
+Swagger exposé en public	Divulgation des endpoints
+Pas de validation du .env	Crash silencieux en prod
+console.log seulement	Pas de logs structurés
+Pas de tests ni lint	Régression non détectée
+Frontend
+- Pages 100% mock (pas d'API) → à brancher module par module
+- Pas de .env front (VITE_API_URL)
+- Pas d'error boundary ni gestion loading standard
+- Guards de route client-only → le backend doit aussi protéger (déjà en place via rbac)
+🟢 Roadmap recommandée (par priorité)
+1. Sécurité backend  helmet, express-rate-limit, validation JWT_SECRETenv, swagger restreint, scripts prod
+2. API utilisateurs  CRUD users + roles (remplace mock dans GestionDesParticipants, Trainers)
+3. API formationssessionsinscriptions
+4. API présencesévaluationscertificats
+5. Front  brancher chaque module sur l'API + chargement + erreurs
+6. Qualité  eslintprettier, tests (vitest + supertest), CI
+7. Déploiement  Docker, HTTPS, .env prod
+Bonnes pratiques prod que j'appliquerai systématiquement 
+- Chiffrerréduire au minimum ce qui est renvoyé (jamais motDePasse)
+- NODE_ENV=production → messages d'erreur génériques
+- Rate-limit + validation serveur pour chaque entrée
+- Tokens courts + refresh si besoin
+- Backend = source de vérité pour l'autorisation (jamais le front seul)
+Je commence par la phase 1 (sécurité backend)  C'est le plus urgent pour la prod.
