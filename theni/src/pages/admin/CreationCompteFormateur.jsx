@@ -1,22 +1,28 @@
 import { useState } from 'react';
-import { User, Badge, Mail, KeyRound, Users, Send } from 'lucide-react';
+import { User, Badge, Mail, KeyRound, Users, Send, RefreshCw } from 'lucide-react';
 import emailService from '../../services/auth/emailService';
 import api from '../../services/config/api';
+
+const generateMatricule = () => {
+  const year = new Date().getFullYear();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `STEG-${year}-${random}`;
+};
 
 const CHAMPS_INITIAUX = {
   prenom: '',
   nom: '',
-  matricule: '',
   email: '',
   genre: 'Male',
-  role_id: 2, // Par défaut Formateur
+  role_id: 2,
   specialite: '',
   qualifications: ''
 };
 
 const ROLES_ADMIN = [
   { value: 1, label: 'Administrateur' },
-  { value: 2, label: 'Formateur' }
+  { value: 2, label: 'Formateur' },
+  { value: 3, label: 'Participant' }
 ];
 
 const GENRES = [
@@ -40,9 +46,9 @@ export default function CreationCompteFormateur() {
     setErreur('');
     setSucces('');
 
-    const { prenom, nom, matricule, email, genre, role_id } = champs;
+    const { prenom, nom, email, genre, role_id } = champs;
 
-    if (!prenom || !nom || !matricule || !email || !genre || !role_id) {
+    if (!prenom || !nom || !email || !genre || !role_id) {
       setErreur('Veuillez remplir tous les champs obligatoires.');
       return;
     }
@@ -50,14 +56,11 @@ export default function CreationCompteFormateur() {
     setChargement(true);
 
     try {
-      // Générer un mot de passe temporaire
       const temporaryPassword = emailService.generateTemporaryPassword();
 
-      // Créer le compte via l'API backend
       const payload = {
         prenom: champs.prenom,
         nom: champs.nom,
-        matricule: champs.matricule,
         email: champs.email,
         genre: champs.genre,
         motDePasse: temporaryPassword,
@@ -91,7 +94,7 @@ export default function CreationCompteFormateur() {
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-on-surface mb-2">Création de Compte</h2>
         <p className="text-on-surface-variant">
-          Créez un nouveau compte formateur ou administrateur. Les identifiants seront envoyés par email.
+          Créez un nouveau compte utilisateur. Les identifiants seront envoyés par email.
         </p>
       </div>
 
@@ -177,26 +180,6 @@ export default function CreationCompteFormateur() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-on-surface mb-2" htmlFor="matricule">
-                Matricule STEG *
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Badge className="text-on-surface-variant" size={18} />
-                </div>
-                <input
-                  id="matricule"
-                  name="matricule"
-                  type="text"
-                  required
-                  value={champs.matricule}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-3 py-3 border border-outline-variant rounded-lg bg-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                  placeholder="STEG-YYYY-XXXX"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Genre et Rôle */}

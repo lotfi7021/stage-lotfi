@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Zap, User, Lock, Eye, EyeOff } from "lucide-react";
 import authService from '../../services/auth/authService';
 import Logo from '../../components/common/Logo';
@@ -175,14 +175,8 @@ export default function Connexion() {
           </form>
 
           <div className="mt-8 pt-6 border-t border-[#c2c6d4] text-center">
-            <p className="text-[#424752]">
-              Nouveau sur la plateforme ?{" "}
-              <Link
-                to="/inscription"
-                className="text-sm font-medium text-[#003f87] hover:text-[#0056b3] transition-colors underline ml-1"
-              >
-                Créer un compte
-              </Link>
+            <p className="text-[#424752] text-sm">
+              Contactez l'administrateur pour obtenir un compte.
             </p>
           </div>
 

@@ -36,7 +36,6 @@ const authLimiter = rateLimit({
   message: { error: 'Trop de tentatives de connexion. Réessayez plus tard.' },
 });
 app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -46,6 +45,8 @@ app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/users', require('./routes/user.routes'));
 app.use('/api/roles', require('./routes/role.routes'));
 app.use('/api/formateurs', require('./routes/formateur.routes'));
+app.use('/api/formations', require('./routes/formation.routes'));
+app.use('/api/sessions', require('./routes/session.routes'));
 
 // Swagger : désactivé en production sauf si ENABLE_SWAGGER=true
 if (ENABLE_SWAGGER) {

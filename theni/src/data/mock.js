@@ -75,26 +75,7 @@ export const CURRENT_USER = getCurrentUser();
 // ─── TABLE: formations (training programs) ───────────────────────────────────
 // Columns: id | titre | objectifs | prerequis | duree_jours | prix_base | categorie | created_at
 export const FORMATIONS = [
-  {
-    id: 1,
-    titre: 'Electrical Safety Certification BR',
-    objectifs: 'Master low voltage electrical safety protocols and risk assessment procedures.',
-    prerequis: 'Basic electricity knowledge',
-    duree_jours: 5,
-    prix_base: 1200.00,
-    categorie: 'Safety',
-    created_at: '2024-01-15T08:00:00Z',
-  },
-  {
-    id: 2,
-    titre: 'Project Management',
-    objectifs: 'Lead complex projects within deadlines using proven methodologies.',
-    prerequis: 'Team management experience',
-    duree_jours: 3,
-    prix_base: 900.00,
-    categorie: 'Management',
-    created_at: '2024-02-10T08:00:00Z',
-  },
+ 
 ];
 
 // ─── TABLE: sessions ──────────────────────────────────────────────────────────

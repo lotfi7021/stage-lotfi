@@ -118,7 +118,7 @@ router.post(
   [
     body('prenom').isString().notEmpty(),
     body('nom').isString().notEmpty(),
-    body('matricule').isString().notEmpty(),
+    body('matricule').optional().isString(),
     body('email').isEmail(),
     body('motDePasse').optional().isLength({ min: 6 }),
     body('genre').optional().isIn(['Male', 'Female']),

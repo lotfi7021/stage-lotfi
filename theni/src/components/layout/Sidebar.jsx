@@ -19,7 +19,6 @@ const ROLE_NAVIGATION = {
     { label: 'Finance', icon: 'payments', to: '/finance' },
     { label: 'Complaints', icon: 'report_problem', to: '/reclamations' },
     { label: 'Role Management', icon: 'manage_accounts', to: '/gestion-des-roles' },
-    { label: 'Create Account', icon: 'person_add_alt', to: '/admin/creer-compte' },
     { label: 'Settings', icon: 'settings', to: '/parametres' }
   ],
 

@@ -10,6 +10,12 @@ const generateTemporaryPassword = (length = 8) => {
   return result;
 };
 
+const generateMatricule = () => {
+  const year = new Date().getFullYear();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `STEG-${year}-${random}`;
+};
+
 const utilisateurSelect = {
   select: {
     id: true,
@@ -116,9 +122,19 @@ exports.createFormateur = async (req, res, next) => {
       return res.status(409).json({ error: 'Cet email est déjà utilisé.' });
     }
 
-    const matriculeExistant = await prisma.utilisateur.findUnique({ where: { matricule } });
-    if (matriculeExistant) {
-      return res.status(409).json({ error: 'Ce matricule est déjà utilisé.' });
+    let finalMatricule = matricule;
+    if (!finalMatricule) {
+      let exists = true;
+      while (exists) {
+        finalMatricule = generateMatricule();
+        const m = await prisma.utilisateur.findUnique({ where: { matricule: finalMatricule } });
+        exists = !!m;
+      }
+    } else {
+      const matriculeExistant = await prisma.utilisateur.findUnique({ where: { matricule: finalMatricule } });
+      if (matriculeExistant) {
+        return res.status(409).json({ error: 'Ce matricule est déjà utilisé.' });
+      }
     }
 
     const roleFormateur = await prisma.role.findUnique({ where: { nomRole: 'formateur' } });
@@ -139,7 +155,7 @@ exports.createFormateur = async (req, res, next) => {
           create: {
             prenom,
             nom,
-            matricule,
+            matricule: finalMatricule,
             email,
             motDePasse: hashedPassword,
             genre: genre === 'Female' ? 'Female' : 'Male',

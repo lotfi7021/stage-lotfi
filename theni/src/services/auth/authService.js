@@ -33,22 +33,6 @@ class AuthService {
     }
   }
 
-  // Inscription réelle vers le backend
-  async register(userData) {
-    try {
-      const { confirmationMotDePasse, ...payload } = userData;
-      const { data } = await api.post('/auth/register', payload);
-      
-      return {
-        user: data.user,
-        message: data.message || 'Compte créé avec succès'
-      };
-    } catch (error) {
-      console.error('Erreur d\'inscription:', error);
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création du compte');
-    }
-  }
-
   // Déconnexion vers le backend puis nettoyage local
   async logout() {
     try {

@@ -79,64 +79,6 @@ exports.login = async (req, res, next) => {
 };
 
 /**
- * @POST /api/auth/register
- * Crée un compte utilisateur avec le rôle participant par défaut
- */
-exports.register = async (req, res, next) => {
-  try {
-    const { prenom, nom, matricule, email, motDePasse, college, genre, dateNaissance } = req.body;
-
-    const emailExistant = await prisma.utilisateur.findUnique({ where: { email } });
-    if (emailExistant) {
-      return res.status(409).json({ error: 'Cet email est déjà utilisé.' });
-    }
-
-    const matriculeExistant = await prisma.utilisateur.findUnique({ where: { matricule } });
-    if (matriculeExistant) {
-      return res.status(409).json({ error: 'Ce matricule est déjà utilisé.' });
-    }
-
-    const roleParticipant = await prisma.role.findUnique({ where: { nomRole: 'participant' } });
-    if (!roleParticipant) {
-      return res.status(500).json({ error: 'Rôle participant introuvable. Lancez le seed.' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(motDePasse, salt);
-
-    const utilisateur = await prisma.utilisateur.create({
-      data: {
-        prenom,
-        nom,
-        matricule,
-        email,
-        motDePasse: hashedPassword,
-        college: college || null,
-        genre: genre === 'Female' ? 'Female' : 'Male',
-        dateNaissance: dateNaissance ? new Date(dateNaissance) : null,
-        roleId: roleParticipant.id,
-        isActive: true,
-      },
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Compte créé avec succès.',
-      user: {
-        id: utilisateur.id,
-        nom: utilisateur.nom,
-        prenom: utilisateur.prenom,
-        email: utilisateur.email,
-        matricule: utilisateur.matricule,
-        role: 'participant',
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/**
  * @GET /api/auth/me
  * Retourne les informations de l'utilisateur connecté
  */

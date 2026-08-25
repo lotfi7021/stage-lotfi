@@ -1,6 +1,12 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/prisma');
 
+const generateMatricule = () => {
+  const year = new Date().getFullYear();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `STEG-${year}-${random}`;
+};
+
 /**
  * @GET /api/users
  * Liste paginée des utilisateurs avec filtres (search, role, isActive)
@@ -121,14 +127,28 @@ exports.createUser = async (req, res, next) => {
       return res.status(409).json({ error: 'Cet email est déjà utilisé.' });
     }
 
-    const matriculeExistant = await prisma.utilisateur.findUnique({ where: { matricule } });
-    if (matriculeExistant) {
-      return res.status(409).json({ error: 'Ce matricule est déjà utilisé.' });
+    let finalMatricule = matricule;
+    if (!finalMatricule) {
+      let exists = true;
+      while (exists) {
+        finalMatricule = generateMatricule();
+        const m = await prisma.utilisateur.findUnique({ where: { matricule: finalMatricule } });
+        exists = !!m;
+      }
+    } else {
+      const matriculeExistant = await prisma.utilisateur.findUnique({ where: { matricule: finalMatricule } });
+      if (matriculeExistant) {
+        return res.status(409).json({ error: 'Ce matricule est déjà utilisé.' });
+      }
     }
 
     const role = await prisma.role.findUnique({ where: { id: roleId } });
     if (!role) {
       return res.status(400).json({ error: 'Rôle invalide.' });
+    }
+
+    if (role.nomRole === 'formateur') {
+      return res.status(403).json({ error: 'Les comptes formateurs doivent être créés via la page dédiée.' });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -138,7 +158,7 @@ exports.createUser = async (req, res, next) => {
       data: {
         prenom,
         nom,
-        matricule,
+        matricule: finalMatricule,
         email,
         motDePasse: hashedPassword,
         college: college || null,

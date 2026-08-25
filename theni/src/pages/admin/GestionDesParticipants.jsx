@@ -2,12 +2,17 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Icon from '../../components/common/Icon';
 import api from '../../services/config/api';
 
+const generateMatricule = () => {
+  const year = new Date().getFullYear();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `STEG-${year}-${random}`;
+};
+
 const EMPTY_FORM = {
   nom: '',
   prenom: '',
   email: '',
   motDePasse: '',
-  matricule: '',
   genre: 'Male',
   dateNaissance: '',
   roleId: '',
@@ -380,13 +385,6 @@ export default function GestionDesParticipants() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-label-md text-on-surface">Matricule <span className="text-error">*</span></label>
-                  <input className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full font-mono"
-                    type="text" placeholder="e.g. STEG-2024-0001" name="matricule" value={form.matricule} onChange={updateForm} required />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
                   <label className="text-label-md text-on-surface">Gender</label>
                   <select className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
                     name="genre" value={form.genre} onChange={updateForm}>
@@ -405,7 +403,7 @@ export default function GestionDesParticipants() {
                   <label className="text-label-md text-on-surface">Role</label>
                   <select className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
                     name="roleId" value={form.roleId} onChange={updateForm} required>
-                    {roles.map((role) => <option key={role.id} value={role.id}>{role.nomRole}</option>)}
+                    {roles.filter((role) => role.nomRole !== 'formateur').map((role) => <option key={role.id} value={role.id}>{role.nomRole}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">

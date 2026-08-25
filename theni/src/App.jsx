@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 
 // Pages Admin
@@ -42,7 +42,6 @@ import Reclamations from './pages/documents/Reclamations';
 
 // Pages d'authentification
 import Connexion from './pages/auth/Connexion';
-import Inscription from './pages/auth/Inscription';
 
 // Service d'authentification
 import authService from './services/auth/authService';
@@ -58,6 +57,33 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Composant pour protéger les routes par rôle (layout route)
+function RoleBasedRoute({ allowedRoles }) {
+  const isAuthenticated = authService.isAuthenticated();
+  const currentUser = authService.getCurrentUser();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/connexion" replace />;
+  }
+  
+  if (!currentUser) {
+    return <Navigate to="/connexion" replace />;
+  }
+  
+  const userRole = currentUser.role;
+  
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    const roleUrls = {
+      admin: '/dashboard',
+      formateur: '/formateur/dashboard',
+      participant: '/participant/dashboard'
+    };
+    return <Navigate to={roleUrls[userRole] || '/connexion'} replace />;
+  }
+  
+  return <Outlet />;
+}
+
 // Composant pour gérer la déconnexion
 function LogoutRoute() {
   React.useEffect(() => {
@@ -69,14 +95,8 @@ function LogoutRoute() {
 
 // Composant pour rediriger vers le bon dashboard selon le rôle
 function RoleBasedRedirect() {
-  // Vérifier d'abord l'authentification
   const isAuthenticated = authService.isAuthenticated();
   const currentUser = authService.getCurrentUser();
-  
-  // Debug: afficher l'état dans la console
-  console.log('RoleBasedRedirect - isAuthenticated:', isAuthenticated);
-  console.log('RoleBasedRedirect - currentUser:', currentUser);
-  console.log('RoleBasedRedirect - localStorage token:', localStorage.getItem('userToken'));
   
   if (!isAuthenticated) {
     return <Navigate to="/connexion" replace />;
@@ -86,11 +106,10 @@ function RoleBasedRedirect() {
     return <Navigate to="/connexion" replace />;
   }
   
-  // Redirection selon le rôle (string du backend)
   const roleUrls = {
-    admin: '/dashboard', // Admin
-    formateur: '/formateur/dashboard', // Formateur
-    participant: '/participant/dashboard' // Participant
+    admin: '/dashboard',
+    formateur: '/formateur/dashboard',
+    participant: '/participant/dashboard'
   };
   
   return <Navigate to={roleUrls[currentUser.role] || '/dashboard'} replace />;
@@ -112,45 +131,51 @@ export default function App() {
       <Routes>
         {/* Routes d'authentification (sans layout) - accessibles sans authentification */}
         <Route path="/connexion" element={<Connexion />} />
-        <Route path="/inscription" element={<Inscription />} />
         
         {/* Route de déconnexion */}
         <Route path="/logout" element={<LogoutRoute />} />
 
         {/* Routes protégées avec layout principal */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          {/* Routes Admin existantes */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/formations" element={<ListeDesFormations />} />
-          <Route path="/formations/ajout" element={<GestionDesFormationsAjout />} />
-          <Route path="/formations/modifier/:id" element={<ModificationFormation />} />
-          <Route path="/formations/modifier" element={<ModificationFormation />} />
-          <Route path="/formations/:id" element={<DetailsFormation />} />
-          <Route path="/catalogue" element={<Catalogue />} />
-          <Route path="/participants" element={<GestionDesParticipants />} />
-          <Route path="/gestion-des-roles" element={<GestionDesRoles />} />
-          <Route path="/trainers" element={<Trainers />} />
-          <Route path="/planning" element={<Planning />} />
-          <Route path="/presences" element={<Presences />} />
-          <Route path="/evaluations" element={<Evaluations />} />
-          <Route path="/certifications" element={<Certifications />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/reclamations" element={<Reclamations />} />
-          <Route path="/parametres" element={<Parametres />} />
-          
-          {/* Pages admin spécialisées */}
-          <Route path="/admin/creer-compte" element={<CreationCompteFormateur />} />
+          {/* Routes Admin */}
+          <Route element={<RoleBasedRoute allowedRoles={['admin']} />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/formations" element={<ListeDesFormations />} />
+            <Route path="/formations/ajout" element={<GestionDesFormationsAjout />} />
+            <Route path="/formations/modifier/:id" element={<ModificationFormation />} />
+            <Route path="/formations/modifier" element={<ModificationFormation />} />
+            <Route path="/formations/:id" element={<DetailsFormation />} />
+            <Route path="/participants" element={<GestionDesParticipants />} />
+            <Route path="/gestion-des-roles" element={<GestionDesRoles />} />
+            <Route path="/trainers" element={<Trainers />} />
+            <Route path="/finance" element={<Finance />} />
+            <Route path="/parametres" element={<Parametres />} />
+          </Route>
 
-          {/* Nouvelles routes Formateur */}
-          <Route path="/formateur/dashboard" element={<FormateurDashboard />} />
-          <Route path="/formateur/presences" element={<FormateurPresences />} />
-          <Route path="/formateur/evaluations" element={<FormateurEvaluations />} />
-          <Route path="/formateur/planning" element={<FormateurPlanning />} />
+          {/* Routes partagées (admin + formateur) */}
+          <Route element={<RoleBasedRoute allowedRoles={['admin', 'formateur']} />}>
+            <Route path="/catalogue" element={<Catalogue />} />
+            <Route path="/planning" element={<Planning />} />
+            <Route path="/presences" element={<Presences />} />
+            <Route path="/evaluations" element={<Evaluations />} />
+            <Route path="/certifications" element={<Certifications />} />
+            <Route path="/reclamations" element={<Reclamations />} />
+          </Route>
 
-           {/* Nouvelles routes Participant */}
-          <Route path="/participant/dashboard" element={<ParticipantDashboard />} />
-          <Route path="/participant/catalogue" element={<ParticipantCatalogue />} />
-          <Route path="/participant/certificats" element={<ParticipantCertificats />} />
+          {/* Routes Formateur */}
+          <Route element={<RoleBasedRoute allowedRoles={['formateur']} />}>
+            <Route path="/formateur/dashboard" element={<FormateurDashboard />} />
+            <Route path="/formateur/presences" element={<FormateurPresences />} />
+            <Route path="/formateur/evaluations" element={<FormateurEvaluations />} />
+            <Route path="/formateur/planning" element={<FormateurPlanning />} />
+          </Route>
+
+          {/* Routes Participant */}
+          <Route element={<RoleBasedRoute allowedRoles={['participant']} />}>
+            <Route path="/participant/dashboard" element={<ParticipantDashboard />} />
+            <Route path="/participant/catalogue" element={<ParticipantCatalogue />} />
+            <Route path="/participant/certificats" element={<ParticipantCertificats />} />
+          </Route>
         </Route>
         
         {/* Redirection de la page d'accueil - soit vers connexion soit vers dashboard selon l'état de connexion */}

@@ -3,7 +3,7 @@ const { body } = require('express-validator');
 
 const router = express.Router();
 
-const { login, register, getMe, changePassword, logout } = require('../controllers/auth.controller');
+const { login, getMe, changePassword, logout } = require('../controllers/auth.controller');
 
 const authMiddleware = require('../middleware/auth.middleware');
 const rbacMiddleware = require('../middleware/rbac.middleware');
@@ -23,68 +23,6 @@ const validate = (req, res, next) => {
  *   name: Auth
  *   description: Authentication and user management
  */
-
-/**
- * @swagger
- * /auth/register:
- *   post:
- *     summary: Create a user account (default role: participant)
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - prenom
- *               - nom
- *               - matricule
- *               - email
- *               - motDePasse
- *             properties:
- *               prenom:
- *                 type: string
- *               nom:
- *                 type: string
- *               matricule:
- *                 type: string
- *               email:
- *                 type: string
- *                 format: email
- *               motDePasse:
- *                 type: string
- *                 format: password
- *                 minLength: 6
- *               college:
- *                 type: string
- *               genre:
- *                 type: string
- *                 enum: [Male, Female]
- *               dateNaissance:
- *                 type: string
- *                 format: date
- *     responses:
- *       201:
- *         description: Account created
- *       409:
- *         description: Email or matricule already used
- */
-router.post(
-  '/register',
-  [
-    body('prenom').isString().notEmpty(),
-    body('nom').isString().notEmpty(),
-    body('matricule').isString().notEmpty(),
-    body('email').isEmail(),
-    body('motDePasse').isLength({ min: 6 }),
-    body('college').optional().isString(),
-    body('genre').optional().isIn(['Male', 'Female']),
-    body('dateNaissance').optional().isISO8601(),
-  ],
-  validate,
-  register
-);
 
 /**
  * @swagger

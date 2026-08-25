@@ -16,6 +16,7 @@ model Role {
 
   @@map("roles")
 }
+
 model Utilisateur {
   id            Int       @id @default(autoincrement())
   nom           String    @db.VarChar(100)
@@ -31,8 +32,14 @@ model Utilisateur {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  formateur Formateur?
+  role              Role               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  formateur         Formateur?
+  inscriptions      Inscription[]
+  presences         Presence[]
+  evaluations       Evaluation[]
+  certifications    Certification[]
+  reclamations      Reclamation[]
+  supportFormations SupportFormation[]
 
   @@map("utilisateurs")
 }
@@ -47,13 +54,266 @@ model Formateur {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  sessions    Session[]
 
   @@map("formateurs")
 }
 
-
-
 enum Genre {
   Male
   Female
+}
+
+enum StatutFormation {
+  PLANNED
+  ACTIVE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Formation {
+  id              Int             @id @default(autoincrement())
+  titre           String          @db.VarChar(150)
+  reference       String          @unique @db.VarChar(30)
+  categorie       String          @db.VarChar(60)
+  objectifs       String?         @db.Text
+  prerequis       String?         @db.Text
+  modules         String?         @db.Text
+  duree           String          @db.VarChar(20)
+  prix            Decimal?        @db.Decimal(10, 2)
+  maxParticipants Int             @map("max_participants")
+  statut          StatutFormation @default(PLANNED)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  sessions       Session[]
+  factures       Facture[]
+  certifications Certification[]
+  reclamations   Reclamation[]
+
+  @@map("formations")
+}
+
+model Session {
+  id              Int           @id @default(autoincrement())
+  formationId     Int           @map("formation_id")
+  formateurId     Int           @map("formateur_id")
+  dateDebut       DateTime      @map("date_debut") @db.Date
+  dateFin         DateTime      @map("date_fin") @db.Date
+  heure           DateTime?     @db.Time(0)
+  lieu            String        @db.VarChar(150)
+  statut          StatutSession @default(PENDING)
+  maxParticipants Int?          @map("max_participants")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  formation      Formation          @relation(fields: [formationId], references: [id], onDelete: Restrict)
+  formateur      Formateur          @relation(fields: [formateurId], references: [id], onDelete: Restrict)
+  inscriptions   Inscription[]
+  presences      Presence[]
+  evaluations    Evaluation[]
+  certifications Certification[]
+  reclamations   Reclamation[]
+  factures       Facture[]
+  supports       SupportFormation[]
+
+  @@map("sessions")
+}
+
+model Inscription {
+  id              Int               @id @default(autoincrement())
+  sessionId       Int               @map("session_id")
+  participantId   Int               @map("participant_id")
+  dateInscription  DateTime           @map("date_inscription") @db.Date
+  statut          StatutInscription @default(ENROLLED)
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  participant Utilisateur @relation(fields: [participantId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, participantId])
+  @@map("inscriptions")
+}
+
+model Presence {
+  id            Int          @id @default(autoincrement())
+  sessionId     Int          @map("session_id")
+  participantId Int          @map("participant_id")
+  date          DateTime     @db.Date
+  statut        TypePresence
+  note          String?      @db.VarChar(255)
+  cantine       Boolean?
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  participant Utilisateur @relation(fields: [participantId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, participantId, date])
+  @@map("presences")
+}
+
+model Evaluation {
+  id            Int               @id @default(autoincrement())
+  sessionId     Int               @map("session_id")
+  participantId Int               @map("participant_id")
+  type          TypeEvaluation
+  score         Decimal?          @db.Decimal(4, 2)
+  commentaire   String?           @db.Text
+  date          DateTime          @db.Date
+  statut        StatutEvaluation?
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  participant Utilisateur @relation(fields: [participantId], references: [id], onDelete: Restrict)
+
+  @@map("evaluations")
+}
+
+model Certification {
+  id             Int              @id @default(autoincrement())
+  reference      String           @unique @db.VarChar(30)
+  participantId  Int              @map("participant_id")
+  formationId    Int              @map("formation_id")
+  sessionId      Int              @map("session_id")
+  dateEmission   DateTime         @map("date_emission") @db.Date
+  dateExpiration DateTime?        @map("date_expiration") @db.Date
+  statut         StatutCertificat @default(VALIDE)
+  qrCode         String?          @db.VarChar(255)
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  participant Utilisateur @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  formation   Formation   @relation(fields: [formationId], references: [id], onDelete: Restrict)
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@map("certifications")
+}
+
+model Reclamation {
+  id            String              @id @db.VarChar(20)
+  participantId Int                 @map("participant_id")
+  formationId   Int                 @map("formation_id")
+  sessionId     Int?                @map("session_id")
+  type          TypeReclamation
+  priorite      PrioriteReclamation
+  titre         String?             @db.VarChar(150)
+  description   String              @db.Text
+  centre        String?             @db.VarChar(100)
+  date          DateTime            @db.Date
+  statut        StatutReclamation   @default(OUVERT)
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  participant Utilisateur @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  formation   Formation   @relation(fields: [formationId], references: [id], onDelete: Restrict)
+  session     Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@map("reclamations")
+}
+
+model Facture {
+  id           String        @id @db.VarChar(20)
+  client       String        @db.VarChar(150)
+  formationId  Int           @map("formation_id")
+  sessionId    Int?          @map("session_id")
+  montant      Decimal       @db.Decimal(12, 2)
+  tva          Decimal?      @db.Decimal(5, 2)
+  date         DateTime      @db.Date
+  statut       StatutFacture @default(EN_ATTENTE)
+  datePaiement DateTime?     @map("date_paiement") @db.Date
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  formation Formation @relation(fields: [formationId], references: [id], onDelete: Restrict)
+  session   Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@map("factures")
+}
+
+model SupportFormation {
+  id         Int            @id @default(autoincrement())
+  sessionId  Int            @map("session_id")
+  nom        String         @db.VarChar(255)
+  chemin     String         @db.VarChar(255)
+  categorie  String?        @db.VarChar(60)
+  type       String?        @db.VarChar(20)
+  taille     String?        @db.VarChar(20)
+  statut     StatutDocument @default(EN_ATTENTE)
+  uploaderId Int            @map("uploader_id")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  session  Session     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  uploader Utilisateur @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+
+  @@map("supports_formation")
+}
+
+enum StatutSession {
+  PENDING
+  CONFIRMED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum StatutInscription {
+  ENROLLED
+  CONFIRMED
+  ATTENDED
+  CANCELLED
+  WAITLIST
+}
+
+enum TypePresence {
+  PRESENT
+  ABSENT
+  JUSTIFIED
+}
+
+enum TypeEvaluation {
+  PRE
+  POST
+  SATISFACTION
+}
+
+enum StatutEvaluation {
+  OPEN
+  SUBMITTED
+  VALIDATED
+}
+
+enum StatutCertificat {
+  VALIDE
+  EXPIRE
+  RENOUVELLEMENT
+}
+
+enum TypeReclamation {
+  LOGISTIQUE
+  PEDAGOGIE
+  RESTAURATION
+  AUTRE
+}
+
+enum PrioriteReclamation {
+  HAUTE
+  MOYENNE
+  BASSE
+}
+
+enum StatutReclamation {
+  OUVERT
+  EN_COURS
+  RESOLU
+  CLOS
+}
+
+enum StatutFacture {
+  PAYEE
+  EN_ATTENTE
+  EN_RETARD
+  ANNULEE
+}
+
+enum StatutDocument {
+  VALIDE
+  EN_ATTENTE
 }
