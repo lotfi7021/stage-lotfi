@@ -26,7 +26,7 @@ export default function FormateurDashboard() {
             const inscriptions = inscriptionsRes.data || [];
             return {
               ...session,
-              formation: formationsMap[session.formation_id]?.titre || 'Unknown Formation',
+              formation: formationsMap[session.formationId || session.formation_id]?.titre || 'Unknown Formation',
               participantsCount: inscriptions.length
             };
           })
@@ -45,40 +45,30 @@ export default function FormateurDashboard() {
   
   // Calculer les statistiques
   const totalSessions = formateurSessions.length;
-  const sessionsEnCours = formateurSessions.filter(s => s.statut === 'In Progress').length;
-  const sessionsPlanifiees = formateurSessions.filter(s => s.statut === 'Planned').length;
-  const sessionsTerminees = formateurSessions.filter(s => s.statut === 'Completed').length;
+  const sessionsEnCours = formateurSessions.filter(s => s.statut === 'ONGOING').length;
+  const sessionsPlanifiees = formateurSessions.filter(s => s.statut === 'PENDING' || s.statut === 'CONFIRMED').length;
+  const sessionsTerminees = formateurSessions.filter(s => s.statut === 'COMPLETED').length;
 
   // Prochaines sessions (les 3 plus proches)
   const prochainesSessions = formateurSessions
-    .filter(s => s.statut === 'Planned')
-    .sort((a, b) => new Date(a.date_debut) - new Date(b.date_debut))
+    .filter(s => s.statut === 'PENDING' || s.statut === 'CONFIRMED')
+    .sort((a, b) => new Date(a.dateDebut || a.date_debut) - new Date(b.dateDebut || b.date_debut))
     .slice(0, 3);
 
-  // Activité récente
-  const activiteRecente = [
-    {
-      id: 1,
-      type: 'presence',
-      text: 'Attendance marked for Electrical Safety session',
-      time: '2 hours ago',
-      icon: 'fact_check'
-    },
-    {
-      id: 2, 
-      type: 'evaluation',
-      text: 'Grades submitted for Project Management participants',
-      time: '1 day ago',
-      icon: 'grade'
-    },
-    {
-      id: 3,
-      type: 'planning',
-      text: 'New session scheduled for next week',
-      time: '2 days ago',
-      icon: 'calendar_today'
-    }
-  ];
+  // Activité récente dérivée des sessions
+  const activiteRecente = formateurSessions
+    .filter(s => s.statut === 'COMPLETED' || s.statut === 'ONGOING')
+    .sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut))
+    .slice(0, 3)
+    .map((s, idx) => ({
+      id: s.id || idx,
+      type: s.statut === 'COMPLETED' ? 'evaluation' : 'presence',
+      text: s.statut === 'COMPLETED'
+        ? `Session "${s.formation}" terminée`
+        : `Session "${s.formation}" en cours`,
+      time: new Date(s.date_debut).toLocaleDateString('fr-FR'),
+      icon: s.statut === 'COMPLETED' ? 'check_circle' : 'play_circle',
+    }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -170,7 +160,7 @@ export default function FormateurDashboard() {
                         {session.formation}
                       </h4>
                       <p className="text-body-sm text-on-surface-variant">
-                        {new Date(session.date_debut).toLocaleDateString()} • {session.lieu}
+                        {new Date(session.dateDebut || session.date_debut).toLocaleDateString('fr-FR')} • {session.lieu}
                       </p>
                     </div>
                     <div className="text-right">
@@ -207,19 +197,26 @@ export default function FormateurDashboard() {
             </div>
           </div>
           <div className="p-6">
-            <div className="space-y-4">
-              {activiteRecente.map((item) => (
-                <div key={item.id} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-primary-container rounded-full flex items-center justify-center shrink-0 mt-1">
-                    <Icon name={item.icon} className="text-on-primary-container text-[16px]" />
+            {activiteRecente.length > 0 ? (
+              <div className="space-y-4">
+                {activiteRecente.map((item) => (
+                  <div key={item.id} className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-primary-container rounded-full flex items-center justify-center shrink-0 mt-1">
+                      <Icon name={item.icon} className="text-on-primary-container text-[16px]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-body-md text-on-surface">{item.text}</p>
+                      <p className="text-body-sm text-on-surface-variant mt-1">{item.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body-md text-on-surface">{item.text}</p>
-                    <p className="text-body-sm text-on-surface-variant mt-1">{item.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Icon name="history" className="text-on-surface-variant/40 text-[48px] mx-auto mb-3" />
+                <p className="text-body-md text-on-surface-variant">Aucune activité récente</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

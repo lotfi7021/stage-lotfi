@@ -31,12 +31,12 @@ const includeFormateur = {
 const formatFormateur = (f) => ({
   id: f.id,
   utilisateur_id: f.utilisateurId,
-  nom: f.utilisateur.nom,
-  prenom: f.utilisateur.prenom,
-  email: f.utilisateur.email,
-  matricule: f.utilisateur.matricule,
-  genre: f.utilisateur.genre,
-  isActive: f.utilisateur.isActive,
+  nom: f.utilisateur?.nom || null,
+  prenom: f.utilisateur?.prenom || null,
+  email: f.utilisateur?.email || null,
+  matricule: f.utilisateur?.matricule || null,
+  genre: f.utilisateur?.genre || null,
+  isActive: f.utilisateur?.isActive ?? null,
   specialite: f.specialite,
   qualifications: f.qualifications,
   disponibilites: f.disponibilites,
@@ -64,11 +64,13 @@ exports.getFormateurs = async (req, res, next) => {
       };
     }
 
-    const formateurs = await prisma.formateur.findMany({
+    const allFormateurs = await prisma.formateur.findMany({
       where,
-      orderBy: { utilisateur: { prenom: 'asc' } },
+      orderBy: { id: 'asc' },
       include: includeFormateur,
     });
+
+    const formateurs = allFormateurs.filter(f => f.utilisateur);
 
     res.status(200).json({
       success: true,

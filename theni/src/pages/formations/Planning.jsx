@@ -41,16 +41,21 @@ export default function Planning() {
     setLoading(true);
     setError('');
     try {
-      const [sessionsRes, formationsRes, formateursRes] = await Promise.all([
+      const [sessionsRes, formationsRes, formateursRes] = await Promise.allSettled([
         api.get('/sessions', { params: { limit: 100 } }),
         api.get('/formations', { params: { limit: 100 } }),
         api.get('/formateurs'),
       ]);
-      setSessions(sessionsRes.data.sessions || []);
-      setFormations(formationsRes.data.formations || []);
-      setFormateurs(formateursRes.data.formateurs || []);
+      setSessions(sessionsRes.status === 'fulfilled' ? (sessionsRes.value.data.sessions || []) : []);
+      setFormations(formationsRes.status === 'fulfilled' ? (formationsRes.value.data.formations || []) : []);
+      setFormateurs(formateursRes.status === 'fulfilled' ? (formateursRes.value.data.formateurs || []) : []);
+
+      const errors = [sessionsRes, formationsRes, formateursRes]
+        .filter(r => r.status === 'rejected')
+        .map(r => r.reason?.response?.data?.error || r.reason?.message);
+      if (errors.length) setError(errors.join(' | '));
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur lors du chargement.');
+      setError(err.message || 'Erreur lors du chargement.');
     } finally {
       setLoading(false);
     }
@@ -60,10 +65,10 @@ export default function Planning() {
     fetchData();
   }, [fetchData]);
 
-  const getFormationTitre = (session) => session.formation?.titre || 'N/A';
+  const getFormationTitre = (session) => session?.formation?.titre || 'N/A';
   const getFormateurNom = (session) => {
-    const u = session.formateur?.utilisateur;
-    return u ? `${u.prenom} ${u.nom}` : 'N/A';
+    const u = session?.formateur?.utilisateur;
+    return u ? `${u.prenom || ''} ${u.nom || ''}`.trim() || 'N/A' : 'N/A';
   };
 
   const changeMonth = (delta) => {
@@ -157,7 +162,7 @@ export default function Planning() {
       </div>
 
       {error && (
-        <div className="bg-error-container border border-outline-variant rounded-xl px-4 py-3 text-sm text-on-error-container">{error}</div>
+        <div className="bg-error-container border border-outline-variant rounded-xl px-4 py-3 text-sm text-on-error-container">{typeof error === 'string' ? error : error.message || 'Erreur inconnue'}</div>
       )}
 
       {success && (

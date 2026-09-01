@@ -1,36 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
+import api from '../../services/config/api';
 
-const SESSIONS = [
-  {
-    id: 1,
-    formation: 'Sécurité Réseaux HTA',
-    date_debut: '2026-06-12',
-    date_fin: '2026-06-16',
-    formateur: 'Ahmed Trabelsi',
-    lieu: 'Centre de Formation - Radès',
-  },
-  {
-    id: 2,
-    formation: 'Habilitation Électrique BR',
-    date_debut: '2026-07-01',
-    date_fin: '2026-07-06',
-    formateur: 'Karim Belhadj',
-    lieu: 'Centre de Formation - Tunis',
-  },
-];
+const STATUT_MAP = { present: 'PRESENT', absent: 'ABSENT', retard: 'JUSTIFIED' };
+const STATUT_REVERSE = { PRESENT: 'present', ABSENT: 'absent', JUSTIFIED: 'retard' };
 
 const COURS_OPTIONS = [
   { value: 'present', label: 'Présent' },
   { value: 'absent', label: 'Absent' },
   { value: 'retard', label: 'Retardataire' },
-];
-
-const AGENTS = [
-  { inscriptionId: 1, matricule: 'STEG-4021', nom: 'Ben Salah Ahmed', defaultCours: 'present', defaultCantine: true },
-  { inscriptionId: 2, matricule: 'STEG-5188', nom: 'Trabelsi Leila', defaultCours: 'present', defaultCantine: true },
-  { inscriptionId: 3, matricule: 'STEG-6204', nom: 'Khemiri Mohamed', defaultCours: 'absent', defaultCantine: false },
-  { inscriptionId: 4, matricule: 'STEG-7310', nom: 'Gharbi Mariem', defaultCours: 'present', defaultCantine: true },
 ];
 
 const COURS_STYLE = {
@@ -40,6 +18,7 @@ const COURS_STYLE = {
 };
 
 const formatDateFR = (iso) => {
+  if (!iso) return '-';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
 };
@@ -52,20 +31,32 @@ const localToday = () => {
 };
 
 export default function Presences() {
+  const [sessions, setSessions] = useState([]);
   const [session, setSession] = useState('');
   const [date, setDate] = useState(localToday());
   const [listLoaded, setListLoaded] = useState(false);
-  const [rows, setRows] = useState(() =>
-    Object.fromEntries(
-      AGENTS.map((a) => [
-        a.inscriptionId,
-        { cours: a.defaultCours, cantine: a.defaultCantine, saved: false },
-      ])
-    )
-  );
+  const [agents, setAgents] = useState([]);
+  const [rows, setRows] = useState({});
   const [validated, setValidated] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [loadingList, setLoadingList] = useState(false);
 
-  const selectedSession = SESSIONS.find((s) => String(s.id) === String(session));
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        setLoadingSessions(true);
+        const { data } = await api.get('/sessions', { params: { limit: 100 } });
+        setSessions(data.sessions || []);
+      } catch (err) {
+        console.error('Error fetching sessions:', err);
+      } finally {
+        setLoadingSessions(false);
+      }
+    };
+    fetchSessions();
+  }, []);
+
+  const selectedSession = sessions.find((s) => String(s.id) === String(session));
 
   const handleCoursChange = (id, value) => {
     setRows((prev) => ({ ...prev, [id]: { ...prev[id], cours: value, saved: false } }));
@@ -75,48 +66,98 @@ export default function Presences() {
     setRows((prev) => ({ ...prev, [id]: { ...prev[id], cantine: checked, saved: false } }));
   };
 
-  const handleRowSave = (id) => {
-    setRows((prev) => ({ ...prev, [id]: { ...prev[id], saved: true } }));
+  const handleRowSave = async (agentId) => {
+    try {
+      const row = rows[agentId];
+      const agent = agents.find((a) => a.inscriptionId === agentId);
+      if (!agent) return;
+
+      await api.post('/presences', {
+        sessionId: Number(session),
+        participantId: agent.participantId,
+        date,
+        statut: STATUT_MAP[row.cours],
+        cantine: row.cantine,
+      });
+
+      setRows((prev) => ({ ...prev, [agentId]: { ...prev[agentId], saved: true } }));
+    } catch (err) {
+      alert(err.response?.data?.error || "Erreur lors de l'enregistrement");
+    }
   };
 
-  const handleLoadList = () => {
+  const handleLoadList = async () => {
     if (!session) {
       alert('Veuillez sélectionner une session.');
       return;
     }
-    setListLoaded(true);
-    setValidated(false);
-    setRows((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).map(([id, row]) => [id, { ...row, saved: false }])
-      )
-    );
+    try {
+      setLoadingList(true);
+      setValidated(false);
+
+      const { data } = await api.get('/inscriptions', { params: { sessionId: session, limit: 100 } });
+      const inscriptions = data.inscriptions || [];
+
+      const agentsList = inscriptions.map((ins) => ({
+        inscriptionId: ins.id,
+        participantId: ins.participantId,
+        matricule: ins.participant?.matricule || '-',
+        nom: `${ins.participant?.prenom || ''} ${ins.participant?.nom || ''}`.trim(),
+      }));
+
+      setAgents(agentsList);
+
+      const initialRows = {};
+      for (const a of agentsList) {
+        initialRows[a.inscriptionId] = { cours: 'present', cantine: true, saved: false };
+      }
+      setRows(initialRows);
+      setListLoaded(true);
+    } catch (err) {
+      console.error('Error loading list:', err);
+      alert('Erreur lors du chargement de la liste');
+    } finally {
+      setLoadingList(false);
+    }
   };
 
   const handleMarkAllPresent = () => {
     setRows((prev) =>
       Object.fromEntries(
-        Object.entries(prev).map(([id, row]) => [
-          id,
-          { ...row, cours: 'present', cantine: row.cantine, saved: false },
-        ])
+        Object.entries(prev).map(([id, row]) => [id, { ...row, cours: 'present', saved: false }])
       )
     );
     setValidated(false);
   };
 
-  const handleValidate = () => {
-    const entries = Object.values(rows);
-    const present = entries.filter((r) => r.cours === 'present').length;
-    const absent = entries.filter((r) => r.cours === 'absent').length;
-    const retard = entries.filter((r) => r.cours === 'retard').length;
-    const cantine = entries.filter((r) => r.cantine).length;
-    setValidated(true);
-    alert(
-      `Feuille de présence validée pour ${formatDateFR(date)}.\n\n` +
+  const handleValidate = async () => {
+    try {
+      const presencesData = agents.map((agent) => ({
+        participantId: agent.participantId,
+        statut: STATUT_MAP[rows[agent.inscriptionId]?.cours || 'present'],
+        cantine: rows[agent.inscriptionId]?.cantine || false,
+      }));
+
+      await api.post('/presences/bulk', {
+        sessionId: Number(session),
+        date,
+        presences: presencesData,
+      });
+
+      setValidated(true);
+      const entries = Object.values(rows);
+      const present = entries.filter((r) => r.cours === 'present').length;
+      const absent = entries.filter((r) => r.cours === 'absent').length;
+      const retard = entries.filter((r) => r.cours === 'retard').length;
+      const cantine = entries.filter((r) => r.cantine).length;
+      alert(
+        `Feuille de présence validée pour ${formatDateFR(date)}.\n\n` +
         `Présents : ${present}\nRetardataires : ${retard}\nAbsents : ${absent}\n` +
         `Repas cantine : ${cantine}`
-    );
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur lors de la validation');
+    }
   };
 
   const summary = {
@@ -144,29 +185,17 @@ export default function Presences() {
               Session sélectionnée
             </label>
             <div className="relative">
-              <select
-                className="w-full appearance-none bg-surface border border-outline-variant rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
-                id="sessionSelect"
-                value={session}
-                onChange={(e) => {
-                  setSession(e.target.value);
-                  setListLoaded(false);
-                  setValidated(false);
-                }}
-              >
+              <select className="w-full appearance-none bg-surface border border-outline-variant rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" id="sessionSelect" value={session} onChange={(e) => { setSession(e.target.value); setListLoaded(false); setValidated(false); }}>
                 <option disabled value="">
-                  Choisir une session...
+                  {loadingSessions ? 'Chargement...' : 'Choisir une session...'}
                 </option>
-                {SESSIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.formation} (Du {formatDateFR(option.date_debut)} au {formatDateFR(option.date_fin)})
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.formation?.titre || `Session ${s.id}`} (Du {formatDateFR(s.dateDebut)} au {formatDateFR(s.dateFin)})
                   </option>
                 ))}
               </select>
-              <Icon
-                name="expand_more"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none"
-              />
+              <Icon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
             </div>
           </div>
 
@@ -174,25 +203,12 @@ export default function Presences() {
             <label className="block font-label-md text-label-md text-on-surface mb-2" htmlFor="dateJour">
               Date du jour
             </label>
-            <input
-              className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
-              id="dateJour"
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value);
-                setValidated(false);
-              }}
-            />
+            <input className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" id="dateJour" type="date" value={date} onChange={(e) => { setDate(e.target.value); setValidated(false); }} />
           </div>
 
-          <button
-            type="button"
-            onClick={handleLoadList}
-            className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-lg hover:bg-on-primary-fixed-variant transition-colors flex items-center justify-center gap-2 ambient-shadow"
-          >
+          <button type="button" onClick={handleLoadList} disabled={loadingList} className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-lg hover:bg-on-primary-fixed-variant transition-colors flex items-center justify-center gap-2 ambient-shadow disabled:opacity-50">
             <Icon name="download" />
-            Charger la liste
+            {loadingList ? 'Chargement...' : 'Charger la liste'}
           </button>
         </div>
       </section>
@@ -211,28 +227,22 @@ export default function Presences() {
           <section className="bg-surface rounded-xl border border-outline-variant ambient-shadow p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="bg-primary-container text-on-primary font-label-sm text-label-sm px-2 py-1 rounded">
-                  EN COURS
-                </span>
-                <span className="font-label-md text-label-md text-on-surface-variant">
-                  {selectedSession.formation}
-                </span>
+                <span className="bg-primary-container text-on-primary font-label-sm text-label-sm px-2 py-1 rounded">EN COURS</span>
+                <span className="font-label-md text-label-md text-on-surface-variant">{selectedSession.formation?.titre || `Session ${selectedSession.id}`}</span>
               </div>
-              <h3 className="font-headline-md text-headline-md text-on-background">
-                {selectedSession.formation}
-              </h3>
+              <h3 className="font-headline-md text-headline-md text-on-background">{selectedSession.formation?.titre || `Session ${selectedSession.id}`}</h3>
               <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-on-surface-variant font-body-md text-body-md">
                 <div className="flex items-center gap-2">
                   <Icon name="event" className="text-outline" />
-                  {formatDateFR(selectedSession.date_debut)} — {formatDateFR(selectedSession.date_fin)}
+                  {formatDateFR(selectedSession.dateDebut)} — {formatDateFR(selectedSession.dateFin)}
                 </div>
                 <div className="flex items-center gap-2">
                   <Icon name="person" className="text-outline" />
-                  Formateur : {selectedSession.formateur}
+                  Formateur : {selectedSession.formateur?.utilisateur?.prenom} {selectedSession.formateur?.utilisateur?.nom}
                 </div>
                 <div className="flex items-center gap-2">
                   <Icon name="location_on" className="text-outline" />
-                  {selectedSession.lieu}
+                  {selectedSession.lieu || '-'}
                 </div>
               </div>
             </div>
@@ -259,9 +269,7 @@ export default function Presences() {
           <section className="bg-surface rounded-xl border border-outline-variant ambient-shadow overflow-hidden">
             <div className="p-6 border-b border-outline-variant bg-surface-container-lowest flex justify-between items-center">
               <h4 className="font-headline-md text-headline-md text-on-background">Liste des inscrits</h4>
-              <div className="font-label-md text-label-md text-on-surface-variant">
-                {formatDateFR(date)}
-              </div>
+              <div className="font-label-md text-label-md text-on-surface-variant">{formatDateFR(date)}</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -275,39 +283,25 @@ export default function Presences() {
                   </tr>
                 </thead>
                 <tbody className="font-body-md text-body-md divide-y divide-outline-variant">
-                  {AGENTS.map((agent) => {
-                    const row = rows[agent.inscriptionId];
+                  {agents.map((agent) => {
+                    const row = rows[agent.inscriptionId] || { cours: 'present', cantine: true, saved: false };
                     return (
                       <tr key={agent.inscriptionId} className="hover:bg-surface-container-lowest transition-colors">
                         <td className="py-4 px-6 font-mono text-on-surface-variant">{agent.matricule}</td>
                         <td className="py-4 px-6 font-medium text-on-background">{agent.nom}</td>
                         <td className="py-4 px-6">
                           <div className="relative inline-block">
-                            <select
-                              className={`appearance-none pr-9 pl-4 py-2 rounded-lg border border-outline-variant font-label-md text-label-md outline-none focus:ring-1 focus:ring-primary transition-colors ${COURS_STYLE[row.cours]}`}
-                              value={row.cours}
-                              onChange={(e) => handleCoursChange(agent.inscriptionId, e.target.value)}
-                            >
+                            <select className={`appearance-none pr-9 pl-4 py-2 rounded-lg border border-outline-variant font-label-md text-label-md outline-none focus:ring-1 focus:ring-primary transition-colors ${COURS_STYLE[row.cours]}`} value={row.cours} onChange={(e) => handleCoursChange(agent.inscriptionId, e.target.value)}>
                               {COURS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
+                                <option key={option.value} value={option.value}>{option.label}</option>
                               ))}
                             </select>
-                            <Icon
-                              name="expand_more"
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none"
-                            />
+                            <Icon name="expand_more" className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
                           </div>
                         </td>
                         <td className="py-4 px-6 text-center">
                           <label className="inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="form-checkbox h-5 w-5 rounded border-outline text-primary focus:ring-primary focus:ring-offset-0 transition-colors"
-                              checked={row.cantine}
-                              onChange={(e) => handleCantineChange(agent.inscriptionId, e.target.checked)}
-                            />
+                            <input type="checkbox" className="form-checkbox h-5 w-5 rounded border-outline text-primary focus:ring-primary focus:ring-offset-0 transition-colors" checked={row.cantine} onChange={(e) => handleCantineChange(agent.inscriptionId, e.target.checked)} />
                           </label>
                         </td>
                         <td className="py-4 px-6 text-center">
@@ -317,11 +311,7 @@ export default function Presences() {
                               Enregistré
                             </span>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleRowSave(agent.inscriptionId)}
-                              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors"
-                            >
+                            <button type="button" onClick={() => handleRowSave(agent.inscriptionId)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
                               <Icon name="save" />
                               Enregistrer
                             </button>
@@ -336,19 +326,11 @@ export default function Presences() {
           </section>
 
           <div className="flex flex-col-reverse md:flex-row justify-between gap-4 pb-12">
-            <button
-              type="button"
-              onClick={handleMarkAllPresent}
-              className="px-6 py-3 rounded-xl border border-primary text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors flex items-center justify-center gap-2"
-            >
+            <button type="button" onClick={handleMarkAllPresent} className="px-6 py-3 rounded-xl border border-primary text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors flex items-center justify-center gap-2">
               <Icon name="done_all" />
               Tout marquer Présent
             </button>
-            <button
-              type="button"
-              onClick={handleValidate}
-              className="px-6 py-3 rounded-xl bg-primary text-on-primary font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center justify-center gap-2 ambient-shadow"
-            >
+            <button type="button" onClick={handleValidate} className="px-6 py-3 rounded-xl bg-primary text-on-primary font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center justify-center gap-2 ambient-shadow">
               <Icon name="check_circle" />
               Valider la feuille de la journée
             </button>

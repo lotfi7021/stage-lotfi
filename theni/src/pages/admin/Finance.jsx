@@ -44,6 +44,7 @@ export default function Finance() {
   const [sessions, setSessions] = useState([]);
   const [formations, setFormations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,10 +73,17 @@ export default function Finance() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setSaveError('');
+    const session = sessions.find((s) => s.id === parseInt(form.sessionId));
+    if (!session) {
+      setSaveError('Please select a valid session.');
+      return;
+    }
     try {
       const result = await factureService.createFacture({
         client: form.client,
-        sessionId: parseInt(form.sessionId),
+        formationId: session.formationId,
+        sessionId: session.id,
         montant: parseFloat(form.montant),
         tva: form.tva ? parseFloat(form.tva) : undefined,
         date: form.date,
@@ -86,8 +94,8 @@ export default function Finance() {
         setForm(EMPTY_FORM);
         setModalOpen(false);
       }
-    } catch {
-      // Error handling
+    } catch (err) {
+      setSaveError(err.response?.data?.error || 'Failed to create the invoice.');
     }
   };
 
@@ -297,6 +305,11 @@ export default function Finance() {
               </button>
             </div>
             <form className="flex flex-col gap-4" onSubmit={handleSave}>
+              {saveError && (
+                <div className="bg-error-container/20 border border-error-container text-on-error-container rounded-xl px-4 py-3 text-body-md">
+                  {saveError}
+                </div>
+              )}
               {/* Client */}
               <div className="flex flex-col gap-1">
                 <label className="text-label-md text-on-surface">Client <span className="text-error">*</span></label>

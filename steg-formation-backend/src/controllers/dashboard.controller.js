@@ -20,7 +20,7 @@ exports.getDashboardStats = async (req, res, next) => {
     ] = await Promise.all([
       prisma.formation.count(),
       prisma.formation.count({ where: { statut: { in: ['ACTIVE', 'IN_PROGRESS'] } } }),
-      prisma.utilisateur.count({ where: { role: { nomRole: 'Participant' }, isActive: true } }),
+      prisma.utilisateur.count({ where: { role: { nomRole: 'participant' }, isActive: true } }),
       prisma.session.count(),
       prisma.session.count({ where: { statut: { in: ['PENDING', 'CONFIRMED'] } } }),
       prisma.session.count({ where: { statut: 'COMPLETED' } }),
@@ -55,6 +55,7 @@ exports.getDashboardStats = async (req, res, next) => {
         plannedSessions,
         completedSessions,
         totalInscriptions,
+        totalPresences,
         totalCertifications,
         totalFactures,
         facturesPayees,

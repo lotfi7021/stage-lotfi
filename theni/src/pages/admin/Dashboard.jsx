@@ -16,6 +16,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import dashboardService from '../../services/dashboard/dashboardService';
+import authService from '../../services/auth/authService';
 
 ChartJS.register(
   CategoryScale,
@@ -87,6 +88,7 @@ const doughnutOptions = {
 };
 
 export default function Dashboard() {
+  const currentUser = authService.getCurrentUser();
   const [stats, setStats] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -167,7 +169,7 @@ export default function Dashboard() {
             Tableau de Bord
           </h1>
           <p className="text-body-lg text-on-surface-variant m-0">
-            Bonjour Ahmed, bienvenue sur la plateforme de gestion des formations
+            Bonjour {currentUser?.prenom || ''}, bienvenue sur la plateforme de gestion des formations
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
