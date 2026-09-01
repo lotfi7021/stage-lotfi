@@ -1,7 +1,7 @@
-﻿import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/common/Icon';
-import { FORMATIONS } from '../../data/mock';
+import formationService from '../../services/formations/formationService';
 
 // Category badge colors
 const CATEGORY_STYLE = {
@@ -19,25 +19,50 @@ export default function Catalogue() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [durationFilter, setDurationFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [formations, setFormations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = [...new Set(FORMATIONS.map((f) => f.categorie))];
+  useEffect(() => {
+    const fetchFormations = async () => {
+      try {
+        setLoading(true);
+        const res = await formationService.getAllFormations();
+        setFormations(res.data || []);
+      } catch (error) {
+        console.error('Error fetching formations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFormations();
+  }, []);
+
+  const categories = [...new Set(formations.map((f) => f.categorie))];
+
+  const parseDuration = (duree) => {
+    if (!duree) return 0;
+    const match = String(duree).match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
 
   const filtered = useMemo(() => {
-    return FORMATIONS.filter((f) => {
+    return formations.filter((f) => {
       const matchCat = categoryFilter === '' || f.categorie === categoryFilter;
+      const dur = parseDuration(f.duree);
       const matchDur =
         durationFilter === '' ||
-        (durationFilter === 'short' && f.duree_jours <= 2) ||
-        (durationFilter === 'medium' && f.duree_jours >= 3 && f.duree_jours <= 5) ||
-        (durationFilter === 'long' && f.duree_jours > 5);
+        (durationFilter === 'short' && dur >= 1 && dur <= 2) ||
+        (durationFilter === 'medium' && dur >= 3 && dur <= 5) ||
+        (durationFilter === 'long' && dur > 5);
       const matchSearch =
         search.trim() === '' ||
         f.titre.toLowerCase().includes(search.toLowerCase()) ||
         f.categorie.toLowerCase().includes(search.toLowerCase()) ||
-        f.objectifs.toLowerCase().includes(search.toLowerCase());
+        (f.objectifs && f.objectifs.toLowerCase().includes(search.toLowerCase()));
       return matchCat && matchDur && matchSearch;
     });
-  }, [categoryFilter, durationFilter, search]);
+  }, [formations, categoryFilter, durationFilter, search]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -98,14 +123,14 @@ export default function Catalogue() {
       </div>
 
       {/* Cards grid */}
-      {filtered.length === 0 ? (
+      {!loading && filtered.length === 0 ? (
         <div className="text-center py-16 text-on-surface-variant">
           <Icon name="search_off" className="text-[48px] mb-3 text-outline" />
           <p className="font-body-lg">No training programs match your filters.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((f) => (
+          {!loading && filtered.map((f) => (
             <div key={f.id} className="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden flex flex-col ambient-shadow hover:shadow-md transition-shadow">
               {/* Card top color band */}
               <div className={`h-2 w-full ${f.categorie === 'Safety' ? 'bg-error' : f.categorie === 'Management' ? 'bg-secondary' : 'bg-primary'}`} />
@@ -117,7 +142,7 @@ export default function Catalogue() {
                   </span>
                   <span className="flex items-center gap-1 text-on-surface-variant text-label-sm">
                     <Icon name="schedule" className="text-[15px]" />
-                    {f.duree_jours} day{f.duree_jours > 1 ? 's' : ''}
+                    {f.duree || '—'}
                   </span>
                 </div>
 
@@ -135,7 +160,7 @@ export default function Catalogue() {
                 <div className="border-t border-outline-variant pt-3 flex flex-col gap-1.5">
                   <div className="flex justify-between text-label-sm">
                     <span className="text-on-surface-variant">Base price</span>
-                    <span className="font-semibold text-on-surface">{f.prix_base.toLocaleString('en-US', { minimumFractionDigits: 2 })} TND</span>
+                    <span className="font-semibold text-on-surface">{f.prix != null ? Number(f.prix).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'} TND</span>
                   </div>
                   <div className="flex justify-between text-label-sm">
                     <span className="text-on-surface-variant">Prerequisites</span>
@@ -158,7 +183,7 @@ export default function Catalogue() {
 
       {/* Count */}
       <p className="text-body-sm text-on-surface-variant text-center pb-6">
-        Showing {filtered.length} of {FORMATIONS.length} training programs
+        Showing {filtered.length} of {formations.length} training programs
       </p>
     </div>
   );

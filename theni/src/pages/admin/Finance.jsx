@@ -1,86 +1,137 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
-import { SESSIONS, FORMATIONS, FACTURES } from '../../data/mock';
+import factureService from '../../services/factures/factureService';
+import api from '../../services/config/api';
 
 const STATUS_STYLES = {
-  'Paid':    'bg-green-100 text-green-800 border border-green-200',
-  'Pending': 'bg-amber-100 text-amber-800 border border-amber-200',
-  'Overdue': 'bg-error-container text-on-error-container border border-[#ffb4ab]',
+  PAYEE: 'bg-green-100 text-green-800 border border-green-200',
+  EN_ATTENTE: 'bg-amber-100 text-amber-800 border border-amber-200',
+  EN_RETARD: 'bg-error-container text-on-error-container border border-[#ffb4ab]',
+  ANNULEE: 'bg-surface-container text-on-surface-variant border border-outline-variant',
 };
+
+const STATUS_LABELS = {
+  PAYEE: 'Paid',
+  EN_ATTENTE: 'Pending',
+  EN_RETARD: 'Overdue',
+  ANNULEE: 'Cancelled',
+};
+
+const STATUT_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  { value: 'PAYEE', label: 'Paid' },
+  { value: 'EN_ATTENTE', label: 'Pending' },
+  { value: 'EN_RETARD', label: 'Overdue' },
+  { value: 'ANNULEE', label: 'Cancelled' },
+];
 
 const EMPTY_FORM = {
-  session_id: '',
-  bon_de_commande: '',
-  montant_total: '',
-  revenus: '',
-  couts: '',
-  statut_paiement: 'Pending',
+  client: '',
+  sessionId: '',
+  montant: '',
+  tva: '',
+  date: '',
+  statut: 'EN_ATTENTE',
 };
-
-// Build display rows from mock FACTURES
-const buildInvoices = () =>
-  FACTURES.map((f) => {
-    const session = SESSIONS.find((s) => s.id === f.session_id);
-    const formation = session ? FORMATIONS.find((fm) => fm.id === session.formation_id) : null;
-    return {
-      id: `INV-${String(f.id).padStart(4, '0')}`,
-      session: session ? `Session #${session.id}` : 'N/A',
-      formation: formation ? formation.titre : 'N/A',
-      montant: f.montant_total.toLocaleString('en-US', { minimumFractionDigits: 3 }),
-      bon_de_commande: f.bon_de_commande,
-      statut_paiement: f.statut_paiement,
-      revenus: f.revenus,
-      couts: f.couts,
-    };
-  });
 
 export default function Finance() {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All statuses');
+  const [statusFilter, setStatusFilter] = useState('');
   const [sortDir, setSortDir] = useState('asc');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [invoices, setInvoices] = useState(buildInvoices());
+  const [invoices, setInvoices] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [formations, setFormations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [facturesRes, sessionsRes, formationsRes] = await Promise.all([
+          factureService.getAllFactures({ limit: 100 }),
+          api.get('/sessions', { params: { limit: 100 } }),
+          api.get('/formations', { params: { limit: 100 } }),
+        ]);
+        if (facturesRes.success) setInvoices(facturesRes.data);
+        if (sessionsRes.data?.sessions) setSessions(sessionsRes.data.sessions);
+        if (formationsRes.data?.formations) setFormations(formationsRes.data.formations);
+      } catch {
+        // API not available
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const updateForm = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    const session = SESSIONS.find((s) => s.id === parseInt(form.session_id));
-    const formation = session ? FORMATIONS.find((f) => f.id === session.formation_id) : null;
-    const newInvoice = {
-      id: `INV-${String(Date.now()).slice(-4)}`,
-      session: session ? `Session #${session.id}` : 'N/A',
-      formation: formation ? formation.titre : 'N/A',
-      montant: parseFloat(form.montant_total).toLocaleString('en-US', { minimumFractionDigits: 3 }),
-      bon_de_commande: form.bon_de_commande,
-      statut_paiement: form.statut_paiement,
-      revenus: parseFloat(form.revenus) || 0,
-      couts: parseFloat(form.couts) || 0,
-    };
-    setInvoices((prev) => [...prev, newInvoice]);
-    setForm(EMPTY_FORM);
-    setModalOpen(false);
+    try {
+      const result = await factureService.createFacture({
+        client: form.client,
+        sessionId: parseInt(form.sessionId),
+        montant: parseFloat(form.montant),
+        tva: form.tva ? parseFloat(form.tva) : undefined,
+        date: form.date,
+        statut: form.statut,
+      });
+      if (result.success) {
+        setInvoices((prev) => [result.data, ...prev]);
+        setForm(EMPTY_FORM);
+        setModalOpen(false);
+      }
+    } catch {
+      // Error handling
+    }
   };
 
+  const buildDisplayRows = (factures) =>
+    factures.map((f) => {
+      const session = sessions.find((s) => s.id === f.sessionId);
+      const formation = formations.find((fm) => fm.id === f.formationId);
+      return {
+        id: f.id,
+        client: f.client,
+        session: session ? `Session #${session.id}` : 'N/A',
+        formation: formation ? formation.titre : 'N/A',
+        montant: Number(f.montant).toLocaleString('en-US', { minimumFractionDigits: 3 }),
+        statut: f.statut,
+        date: new Date(f.date).toLocaleDateString('fr-TN'),
+      };
+    });
+
+  const displayInvoices = buildDisplayRows(invoices);
+
   const query = search.trim().toLowerCase();
-  const filtered = invoices.filter((inv) => {
+  const filtered = displayInvoices.filter((inv) => {
     const matchesSearch =
       query === '' ||
-      [inv.id, inv.session, inv.formation, inv.bon_de_commande].some((v) =>
+      [inv.id, inv.client, inv.session, inv.formation].some((v) =>
         v.toLowerCase().includes(query)
       );
     const matchesStatus =
-      statusFilter === 'All statuses' || inv.statut_paiement === statusFilter;
+      statusFilter === '' || inv.statut === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const sorted = [...filtered].sort((a, b) =>
     sortDir === 'asc' ? a.id.localeCompare(b.id) : b.id.localeCompare(a.id)
   );
+
+  const totalRevenue = invoices
+    .filter((f) => f.statut === 'PAYEE')
+    .reduce((sum, f) => sum + Number(f.montant), 0);
+  const pendingCount = invoices.filter((f) => f.statut === 'EN_ATTENTE').length;
+  const overdueCount = invoices.filter((f) => f.statut === 'EN_RETARD').length;
+  const collectionRate = invoices.length > 0
+    ? Math.round((invoices.filter((f) => f.statut === 'PAYEE').length / invoices.length) * 100)
+    : 0;
 
   return (
     <div className="flex flex-col gap-8 md:gap-10">
@@ -107,10 +158,10 @@ export default function Finance() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Revenue', value: '142.5K', icon: 'account_balance_wallet', badge: '+12% this month', trend: true, bg: 'bg-secondary-container', fg: 'text-on-secondary-container' },
-          { label: 'Pending Invoices', value: '24', icon: 'pending_actions', badge: 'Total: 35,400 TND', trend: false, bg: 'bg-error-container', fg: 'text-on-error-container' },
-          { label: 'Allocated Budget', value: '500K', icon: 'pie_chart', badge: 'Consumed: 45%', trend: false, bg: 'bg-surface-container-high', fg: 'text-on-surface-variant' },
-          { label: 'Collection Rate', value: '88%', icon: 'verified', badge: 'Target: 95%', trend: true, bg: 'bg-secondary-fixed', fg: 'text-on-secondary-fixed' },
+          { label: 'Revenue', value: `${(totalRevenue / 1000).toFixed(1)}K`, icon: 'account_balance_wallet', badge: `${invoices.filter((f) => f.statut === 'PAYEE').length} paid`, trend: true, bg: 'bg-secondary-container', fg: 'text-on-secondary-container' },
+          { label: 'Pending Invoices', value: String(pendingCount + overdueCount), icon: 'pending_actions', badge: `${overdueCount} overdue`, trend: false, bg: 'bg-error-container', fg: 'text-on-error-container' },
+          { label: 'Total Invoices', value: String(invoices.length), icon: 'receipt', badge: `${invoices.length} total`, trend: false, bg: 'bg-surface-container-high', fg: 'text-on-surface-variant' },
+          { label: 'Collection Rate', value: `${collectionRate}%`, icon: 'verified', badge: 'Target: 95%', trend: collectionRate >= 80, bg: 'bg-secondary-fixed', fg: 'text-on-secondary-fixed' },
         ].map((kpi) => (
           <div key={kpi.label} className="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant ambient-shadow flex flex-col justify-between h-[160px]">
             <div className="flex justify-between items-start mb-4">
@@ -150,10 +201,9 @@ export default function Finance() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option>All statuses</option>
-              <option>Paid</option>
-              <option>Pending</option>
-              <option>Overdue</option>
+              {STATUT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -171,25 +221,27 @@ export default function Finance() {
                     <Icon name={sortDir === 'asc' ? 'arrow_drop_up' : 'arrow_drop_down'} size={16} />
                   </span>
                 </th>
+                <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Client</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Session</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider min-w-[180px]">Training</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Amount (TND)</th>
-                <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Purchase Order</th>
+                <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Date</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="font-body-md text-on-surface divide-y divide-surface-variant">
-              {sorted.map((inv) => (
+              {!loading && sorted.map((inv) => (
                 <tr key={inv.id} className="hover:bg-surface-container-low transition-colors">
                   <td className="px-6 py-4 font-label-md text-primary font-bold">{inv.id}</td>
+                  <td className="px-6 py-4 text-on-surface-variant">{inv.client}</td>
                   <td className="px-6 py-4 text-on-surface-variant">{inv.session}</td>
                   <td className="px-6 py-4 text-on-surface">{inv.formation}</td>
                   <td className="px-6 py-4 font-medium">{inv.montant}</td>
-                  <td className="px-6 py-4 text-on-surface-variant">{inv.bon_de_commande}</td>
+                  <td className="px-6 py-4 text-on-surface-variant">{inv.date}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLES[inv.statut_paiement] || STATUS_STYLES['Pending']}`}>
-                      {inv.statut_paiement}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLES[inv.statut] || STATUS_STYLES['EN_ATTENTE']}`}>
+                      {STATUS_LABELS[inv.statut] || inv.statut}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -202,10 +254,17 @@ export default function Finance() {
                   </td>
                 </tr>
               ))}
-              {sorted.length === 0 && (
+              {!loading && sorted.length === 0 && (
                 <tr>
-                  <td className="px-6 py-8 text-sm text-on-surface-variant text-center" colSpan={7}>
+                  <td className="px-6 py-8 text-sm text-on-surface-variant text-center" colSpan={8}>
                     No invoices match the search criteria.
+                  </td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td className="px-6 py-8 text-sm text-on-surface-variant text-center" colSpan={8}>
+                    Chargement...
                   </td>
                 </tr>
               )}
@@ -238,90 +297,83 @@ export default function Finance() {
               </button>
             </div>
             <form className="flex flex-col gap-4" onSubmit={handleSave}>
+              {/* Client */}
+              <div className="flex flex-col gap-1">
+                <label className="text-label-md text-on-surface">Client <span className="text-error">*</span></label>
+                <input
+                  className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
+                  type="text"
+                  placeholder="Client name"
+                  name="client"
+                  value={form.client}
+                  onChange={updateForm}
+                  required
+                />
+              </div>
+
               {/* Session */}
               <div className="flex flex-col gap-1">
                 <label className="text-label-md text-on-surface">Session <span className="text-error">*</span></label>
                 <select
                   className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
-                  name="session_id"
-                  value={form.session_id}
+                  name="sessionId"
+                  value={form.sessionId}
                   onChange={updateForm}
                   required
                 >
                   <option value="">Select a session</option>
-                  {SESSIONS.map((s) => {
-                    const f = FORMATIONS.find((fm) => fm.id === s.formation_id);
+                  {sessions.map((s) => {
+                    const f = formations.find((fm) => fm.id === s.formationId);
                     return (
                       <option key={s.id} value={s.id}>
-                        Session #{s.id} — {f?.titre || 'N/A'} ({s.date_debut} to {s.date_fin})
+                        Session #{s.id} — {f?.titre || 'N/A'} ({new Date(s.dateDebut).toLocaleDateString('fr-TN')})
                       </option>
                     );
                   })}
                 </select>
               </div>
 
-              {/* Purchase Order */}
-              <div className="flex flex-col gap-1">
-                <label className="text-label-md text-on-surface">Purchase Order <span className="text-error">*</span></label>
-                <input
-                  className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
-                  type="text"
-                  placeholder="e.g. PO-2024-0150"
-                  name="bon_de_commande"
-                  value={form.bon_de_commande}
-                  onChange={updateForm}
-                  required
-                />
-              </div>
-
               {/* Amounts */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-label-md text-on-surface">Total Amount (TND) <span className="text-error">*</span></label>
                   <input
                     className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
                     type="number" step="0.001" placeholder="18000.000"
-                    name="montant_total" value={form.montant_total} onChange={updateForm} required
+                    name="montant" value={form.montant} onChange={updateForm} required
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-label-md text-on-surface">Revenue (TND)</label>
+                  <label className="text-label-md text-on-surface">TVA (TND)</label>
                   <input
                     className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
-                    type="number" step="0.001" placeholder="18000.000"
-                    name="revenus" value={form.revenus} onChange={updateForm}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-label-md text-on-surface">Costs (TND)</label>
-                  <input
-                    className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
-                    type="number" step="0.001" placeholder="4500.000"
-                    name="couts" value={form.couts} onChange={updateForm}
+                    type="number" step="0.001" placeholder="3600.000"
+                    name="tva" value={form.tva} onChange={updateForm}
                   />
                 </div>
               </div>
 
-              {/* Profit margin preview */}
-              {form.revenus && form.couts && (
-                <div className="bg-secondary-container/20 border border-secondary rounded-lg p-3 flex justify-between items-center">
-                  <span className="text-label-md text-on-surface-variant">Profit margin:</span>
-                  <span className="text-headline-sm text-secondary font-bold">
-                    {(parseFloat(form.revenus) - parseFloat(form.couts)).toFixed(3)} TND
-                  </span>
-                </div>
-              )}
+              {/* Date */}
+              <div className="flex flex-col gap-1">
+                <label className="text-label-md text-on-surface">Invoice Date <span className="text-error">*</span></label>
+                <input
+                  className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
+                  type="date"
+                  name="date" value={form.date} onChange={updateForm} required
+                />
+              </div>
 
               {/* Payment status */}
               <div className="flex flex-col gap-1">
                 <label className="text-label-md text-on-surface">Payment Status</label>
                 <select
                   className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary w-full"
-                  name="statut_paiement" value={form.statut_paiement} onChange={updateForm}
+                  name="statut" value={form.statut} onChange={updateForm}
                 >
-                  <option value="Paid">Paid</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Overdue">Overdue</option>
+                  <option value="EN_ATTENTE">Pending</option>
+                  <option value="PAYEE">Paid</option>
+                  <option value="EN_RETARD">Overdue</option>
+                  <option value="ANNULEE">Cancelled</option>
                 </select>
               </div>
 

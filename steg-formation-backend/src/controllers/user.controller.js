@@ -1,11 +1,6 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/prisma');
-
-const generateMatricule = () => {
-  const year = new Date().getFullYear();
-  const random = Math.floor(1000 + Math.random() * 9000);
-  return `STEG-${year}-${random}`;
-};
+const { generateMatricule } = require('../utils/matricule');
 
 /**
  * @GET /api/users

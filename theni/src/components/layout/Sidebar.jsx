@@ -5,8 +5,7 @@ import Logo from '../common/Logo';
 
 // Navigation pour les différents rôles
 const ROLE_NAVIGATION = {
-  // Admin - Accès complet à tout
-  1: [
+  admin: [
     { label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
     { label: 'Training Programs', icon: 'school', to: '/formations' },
     { label: 'Catalog', icon: 'menu_book', to: '/catalogue' },
@@ -22,8 +21,7 @@ const ROLE_NAVIGATION = {
     { label: 'Settings', icon: 'settings', to: '/parametres' }
   ],
 
-  // Formateur - Interface formateur
-  2: [
+  formateur: [
     { label: 'My Dashboard', icon: 'dashboard', to: '/formateur/dashboard' },
     { label: 'My Planning', icon: 'calendar_view_week', to: '/formateur/planning' },
     { label: 'Mark Attendance', icon: 'fact_check', to: '/formateur/presences' },
@@ -32,28 +30,25 @@ const ROLE_NAVIGATION = {
     { label: 'Settings', icon: 'settings', to: '/parametres' }
   ],
 
-  // Participant - Interface participant
-  3: [
+  participant: [
     { label: 'My Dashboard', icon: 'dashboard', to: '/participant/dashboard' },
     { label: 'Training Catalog', icon: 'library_books', to: '/participant/catalogue' },
     { label: 'My Certificates', icon: 'workspace_premium', to: '/participant/certificats' },
-    { label: 'My Schedule', icon: 'calendar_view_week', to: '/participant/planning' },
     { label: 'Give Feedback', icon: 'feedback', to: '/reclamations' },
     { label: 'Settings', icon: 'settings', to: '/parametres' }
   ]
 };
 
-// Titres des rôles pour l'affichage
 const ROLE_TITLES = {
-  1: 'Admin Portal',
-  2: 'Trainer Portal', 
-  3: 'Learning Portal'
+  admin: 'Admin Portal',
+  formateur: 'Trainer Portal',
+  participant: 'Learning Portal'
 };
 
 const ROLE_NAMES = {
-  1: 'Administrator',
-  2: 'Trainer', 
-  3: 'Participant'
+  admin: 'Administrator',
+  formateur: 'Trainer',
+  participant: 'Participant'
 };
 
 export default function Sidebar() {
@@ -61,7 +56,6 @@ export default function Sidebar() {
   const [showRoleSelector, setShowRoleSelector] = useState(false);
 
   const getCurrentUser = () => {
-    // Utiliser l'utilisateur réel connecté (renvoyé par le backend)
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       try {
@@ -69,35 +63,7 @@ export default function Sidebar() {
         if (user && user.id) return user;
       } catch (e) { /* ignore */ }
     }
-
-    // Charger les utilisateurs depuis mock.js
-    const UTILISATEURS = [
-      {
-        id: 1,
-        nom: 'Ben Salah',
-        prenom: 'Ahmed',
-        role_id: 1, // Admin
-      },
-      {
-        id: 2,
-        nom: 'Jlassi',
-        prenom: 'Mohamed Amine',
-        role_id: 3, // Participant
-      },
-      {
-        id: 3,
-        nom: 'Trabelsi',
-        prenom: 'Fatima',
-        role_id: 2, // Formateur
-      },
-    ];
-
-    const storedUserId = localStorage.getItem('currentUserId');
-    if (storedUserId) {
-      const user = UTILISATEURS.find(u => u.id === parseInt(storedUserId));
-      if (user) return user;
-    }
-    return UTILISATEURS[0]; // Par défaut Admin
+    return null;
   };
 
   useEffect(() => {
@@ -136,9 +102,9 @@ export default function Sidebar() {
 
   if (!currentUser) return null;
 
-  const userRole = currentUser.role_id || 1;
+  const userRole = currentUser.role || 'admin';
   const roleTitle = ROLE_TITLES[userRole] || 'Training Portal';
-  const navItems = ROLE_NAVIGATION[userRole] || ROLE_NAVIGATION[1];
+  const navItems = ROLE_NAVIGATION[userRole] || ROLE_NAVIGATION.admin;
 
   return (
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 overflow-y-auto flex-col p-4 border-r border-outline-variant bg-surface-container-low transition-all duration-200 ease-in-out z-50">

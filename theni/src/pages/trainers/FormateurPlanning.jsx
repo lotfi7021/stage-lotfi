@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
-import { SESSIONS, FORMATIONS, INSCRIPTIONS, CURRENT_USER } from '../../data/mock';
+import trainerService from '../../services/trainers/trainerService';
+import participantService from '../../services/participants/participantService';
+import formationService from '../../services/formations/formationService';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -10,22 +12,46 @@ const MONTHS = [
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function FormateurPlanning() {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month' ou 'week'
   const [selectedSession, setSelectedSession] = useState(null);
+  const [formateurSessions, setFormateurSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Récupérer les sessions du formateur
-  const formateurSessions = SESSIONS
-    .filter(session => session.formateur_id === CURRENT_USER.id)
-    .map(session => {
-      const formation = FORMATIONS.find(f => f.id === session.formation_id);
-      const inscriptions = INSCRIPTIONS.filter(i => i.session_id === session.id);
-      return {
-        ...session,
-        formation: formation?.titre || 'Unknown Formation',
-        participantsCount: inscriptions.length
-      };
-    });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const sessionsRes = await trainerService.getTrainerSessions(currentUser.id);
+        const sessions = sessionsRes.data || [];
+
+        const formationsRes = await formationService.getAllFormations();
+        const formations = formationsRes.data || [];
+        const formationsMap = Object.fromEntries(formations.map(f => [f.id, f]));
+
+        const enrichedSessions = await Promise.all(
+          sessions.map(async (session) => {
+            const inscriptionsRes = await participantService.getAllInscriptions({ sessionId: session.id });
+            const inscriptions = inscriptionsRes.data || [];
+            return {
+              ...session,
+              formation: formationsMap[session.formation_id]?.titre || 'Unknown Formation',
+              participantsCount: inscriptions.length
+            };
+          })
+        );
+
+        setFormateurSessions(enrichedSessions);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentUser.id]);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -50,7 +76,6 @@ export default function FormateurPlanning() {
     // Jours du mois actuel
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDay = new Date(year, month, day);
-      const dayStr = currentDay.toISOString().split('T')[0];
       
       const sessionsForDay = formateurSessions.filter(session => {
         const startDate = new Date(session.date_debut);
@@ -90,7 +115,6 @@ export default function FormateurPlanning() {
     for (let i = 0; i < 7; i++) {
       const currentDay = new Date(startOfWeek);
       currentDay.setDate(startOfWeek.getDate() + i);
-      const dayStr = currentDay.toISOString().split('T')[0];
       
       const sessionsForDay = formateurSessions.filter(session => {
         const startDate = new Date(session.date_debut);

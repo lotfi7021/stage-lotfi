@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
-import { FORMATIONS, SESSIONS, INSCRIPTIONS, UTILISATEURS, CURRENT_USER } from '../../data/mock';
+import formationService from '../../services/formations/formationService';
+import participantService from '../../services/participants/participantService';
+import trainerService from '../../services/trainers/trainerService';
 
 const CATEGORIES = [
   'All',
@@ -20,60 +22,100 @@ const DURATION_FILTERS = [
 ];
 
 export default function ParticipantCatalogue() {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedDuration, setSelectedDuration] = useState('all');
   const [selectedFormation, setSelectedFormation] = useState(null);
   const [enrollModal, setEnrollModal] = useState(false);
+  const [formationsWithSessions, setFormationsWithSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Récupérer les formations avec leurs sessions disponibles
-  const formationsWithSessions = FORMATIONS.map(formation => {
-    const availableSessions = SESSIONS.filter(session => 
-      session.formation_id === formation.id && 
-      session.statut === 'Planned'
-    ).map(session => {
-      const formateur = UTILISATEURS.find(u => u.id === session.formateur_id);
-      const inscriptions = INSCRIPTIONS.filter(i => i.session_id === session.id);
-      const userEnrolled = inscriptions.some(i => i.participant_id === CURRENT_USER.id);
-      
-      return {
-        ...session,
-        formateur,
-        enrolledCount: inscriptions.length,
-        userEnrolled
-      };
-    });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const formationsRes = await formationService.getAllFormations();
+        const formations = formationsRes.data || [];
 
-    return {
-      ...formation,
-      availableSessions,
-      hasAvailableSessions: availableSessions.length > 0
+        const enrichedFormations = await Promise.all(
+          formations.map(async (formation) => {
+            const sessionsRes = await formationService.getFormationSessions(formation.id);
+            const allSessions = sessionsRes.data || [];
+
+            const plannedSessions = allSessions.filter(session => session.statut === 'PENDING' || session.statut === 'CONFIRMED');
+
+            const enrichedSessions = await Promise.all(
+              plannedSessions.map(async (session) => {
+                const formateurRes = session.formateurId ? await trainerService.getTrainer(session.formateurId) : { data: null };
+                const formateur = formateurRes.data || null;
+
+                const inscriptionsRes = await participantService.getAllInscriptions({ sessionId: session.id });
+                const inscriptions = inscriptionsRes.data || [];
+                const userEnrolled = inscriptions.some(i => i.participantId === currentUser.id);
+                
+                return {
+                  ...session,
+                  formateur,
+                  enrolledCount: inscriptions.length,
+                  userEnrolled
+                };
+              })
+            );
+
+            return {
+              ...formation,
+              availableSessions: enrichedSessions,
+              hasAvailableSessions: enrichedSessions.length > 0
+            };
+          })
+        );
+
+        setFormationsWithSessions(enrichedFormations);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
     };
-  });
+
+    fetchData();
+  }, [currentUser.id]);
 
   // Filtrer les formations
+  const parseDuration = (duree) => {
+    if (!duree) return 0;
+    const match = String(duree).match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
   const filteredFormations = formationsWithSessions.filter(formation => {
     const matchesSearch = 
       formation.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      formation.objectifs.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      formation.prerequis.toLowerCase().includes(searchTerm.toLowerCase());
+      (formation.objectifs && formation.objectifs.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (formation.prerequis && formation.prerequis.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesCategory = selectedCategory === 'All' || formation.categorie === selectedCategory;
 
+    const dur = parseDuration(formation.duree);
     const matchesDuration = 
       selectedDuration === 'all' ||
-      (selectedDuration === '1-3' && formation.duree_jours >= 1 && formation.duree_jours <= 3) ||
-      (selectedDuration === '4-5' && formation.duree_jours >= 4 && formation.duree_jours <= 5) ||
-      (selectedDuration === '6+' && formation.duree_jours >= 6);
+      (selectedDuration === '1-3' && dur >= 1 && dur <= 3) ||
+      (selectedDuration === '4-5' && dur >= 4 && dur <= 5) ||
+      (selectedDuration === '6+' && dur >= 6);
 
     return matchesSearch && matchesCategory && matchesDuration;
   });
 
-  const handleEnroll = (sessionId) => {
-    console.log('Enrolling in session:', sessionId);
-    // Ici vous ajouteriez l'appel API pour l'inscription
-    alert('Successfully enrolled in the training session!');
-    setEnrollModal(false);
+  const handleEnroll = async (sessionId) => {
+    try {
+      await participantService.enrollParticipant(currentUser.id, sessionId);
+      alert('Successfully enrolled in the training session!');
+      setEnrollModal(false);
+    } catch (error) {
+      console.error('Error enrolling:', error);
+      alert('Error enrolling. Please try again.');
+    }
   };
 
   const getCategoryColor = (category) => {
@@ -142,12 +184,12 @@ export default function ParticipantCatalogue() {
 
       {/* Results count */}
       <div className="text-body-md text-on-surface-variant">
-        {filteredFormations.length} training program{filteredFormations.length !== 1 ? 's' : ''} found
+        {loading ? 'Loading...' : `${filteredFormations.length} training program${filteredFormations.length !== 1 ? 's' : ''} found`}
       </div>
 
       {/* Training Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredFormations.length > 0 ? (
+        {!loading && filteredFormations.length > 0 ? (
           filteredFormations.map((formation) => (
             <div key={formation.id} className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 ambient-shadow hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
@@ -157,7 +199,7 @@ export default function ParticipantCatalogue() {
                       {formation.categorie}
                     </span>
                     <span className="text-label-sm text-on-surface-variant">
-                      {formation.duree_jours} day{formation.duree_jours !== 1 ? 's' : ''}
+                      {formation.duree || '—'}
                     </span>
                   </div>
                   <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-2">
@@ -166,7 +208,7 @@ export default function ParticipantCatalogue() {
                 </div>
                 <div className="text-right">
                   <div className="font-label-md text-on-surface font-bold">
-                    {formation.prix_base.toFixed(2)} TND
+                    {formation.prix != null ? Number(formation.prix).toFixed(2) : '—'} TND
                   </div>
                 </div>
               </div>
@@ -196,10 +238,10 @@ export default function ParticipantCatalogue() {
                       <div key={session.id} className="flex items-center justify-between p-3 bg-surface-container rounded-lg">
                         <div className="flex-1">
                           <div className="text-body-sm text-on-surface font-semibold">
-                            {new Date(session.date_debut).toLocaleDateString()} - {new Date(session.date_fin).toLocaleDateString()}
+                            {new Date(session.dateDebut).toLocaleDateString()} - {new Date(session.dateFin).toLocaleDateString()}
                           </div>
                           <div className="text-body-sm text-on-surface-variant">
-                            {session.lieu} • {session.type_session} • {session.formateur?.prenom} {session.formateur?.nom}
+                            {session.lieu} • {session.formateur?.prenom} {session.formateur?.nom}
                           </div>
                           <div className="text-body-sm text-on-surface-variant">
                             {session.enrolledCount} enrolled
@@ -271,7 +313,7 @@ export default function ParticipantCatalogue() {
                   {selectedFormation.categorie}
                 </span>
                 <span className="text-label-sm text-on-surface-variant">
-                  {selectedFormation.duree_jours} days • {selectedFormation.prix_base.toFixed(2)} TND
+                  {selectedFormation.duree} • {selectedFormation.prix != null ? Number(selectedFormation.prix).toFixed(2) : '—'} TND
                 </span>
               </div>
               <p className="text-body-md text-on-surface-variant">{selectedFormation.objectifs}</p>
@@ -289,13 +331,13 @@ export default function ParticipantCatalogue() {
                     <div className="flex justify-between items-center">
                       <div className="flex-1">
                         <div className="font-label-md text-on-surface font-semibold mb-1">
-                          {new Date(session.date_debut).toLocaleDateString()} - {new Date(session.date_fin).toLocaleDateString()}
+                          {new Date(session.dateDebut).toLocaleDateString()} - {new Date(session.dateFin).toLocaleDateString()}
                         </div>
                         <div className="text-body-sm text-on-surface-variant mb-1">
-                          📍 {session.lieu} • {session.type_session}
+                          {session.lieu}
                         </div>
                         <div className="text-body-sm text-on-surface-variant">
-                          👨‍🏫 {session.formateur?.prenom} {session.formateur?.nom} • {session.enrolledCount} enrolled
+                          {session.formateur?.prenom} {session.formateur?.nom} • {session.enrolledCount} enrolled
                         </div>
                       </div>
                       <div>

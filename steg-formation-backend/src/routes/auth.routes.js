@@ -6,16 +6,7 @@ const router = express.Router();
 const { login, getMe, changePassword, logout } = require('../controllers/auth.controller');
 
 const authMiddleware = require('../middleware/auth.middleware');
-const rbacMiddleware = require('../middleware/rbac.middleware');
-
-// Validation middleware
-const validate = (req, res, next) => {
-  const errors = require('express-validator').validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-  next();
-};
+const validate = require('../middleware/validate.middleware');
 
 /**
  * @swagger

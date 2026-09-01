@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/prisma');
+const { generateMatricule } = require('../utils/matricule');
 
 const TEMPORARY_PASSWORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const generateTemporaryPassword = (length = 8) => {
@@ -8,12 +9,6 @@ const generateTemporaryPassword = (length = 8) => {
     result += TEMPORARY_PASSWORD_CHARS.charAt(Math.floor(Math.random() * TEMPORARY_PASSWORD_CHARS.length));
   }
   return result;
-};
-
-const generateMatricule = () => {
-  const year = new Date().getFullYear();
-  const random = Math.floor(1000 + Math.random() * 9000);
-  return `STEG-${year}-${random}`;
 };
 
 const utilisateurSelect = {

@@ -1,30 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
-import { SESSIONS, FORMATIONS, INSCRIPTIONS, UTILISATEURS, PRESENCES, CURRENT_USER } from '../../data/mock';
+import trainerService from '../../services/trainers/trainerService';
+import participantService from '../../services/participants/participantService';
+import formationService from '../../services/formations/formationService';
 
 export default function FormateurPresences() {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [presenceData, setPresenceData] = useState({});
+  const [formateurSessions, setFormateurSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Récupérer les sessions du formateur
-  const formateurSessions = SESSIONS
-    .filter(session => session.formateur_id === CURRENT_USER.id)
-    .map(session => {
-      const formation = FORMATIONS.find(f => f.id === session.formation_id);
-      const inscriptions = INSCRIPTIONS.filter(i => i.session_id === session.id);
-      return {
-        ...session,
-        formation: formation?.titre || 'Unknown Formation',
-        participants: inscriptions.map(inscription => {
-          const user = UTILISATEURS.find(u => u.id === inscription.participant_id);
-          return {
-            ...inscription,
-            ...user
-          };
-        })
-      };
-    });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const sessionsRes = await trainerService.getTrainerSessions(currentUser.id);
+        const sessions = sessionsRes.data || [];
+
+        const formationsRes = await formationService.getAllFormations();
+        const formations = formationsRes.data || [];
+        const formationsMap = Object.fromEntries(formations.map(f => [f.id, f]));
+
+        const enrichedSessions = await Promise.all(
+          sessions.map(async (session) => {
+            const inscriptionsRes = await participantService.getAllInscriptions({ sessionId: session.id });
+            const inscriptions = inscriptionsRes.data || [];
+
+            const participants = await Promise.all(
+              inscriptions.map(async (inscription) => {
+                const userRes = await import('../../services/auth/userService').then(m => m.default.getUserById(inscription.participant_id));
+                return { ...inscription, ...userRes.data };
+              })
+            );
+
+            return {
+              ...session,
+              formation: formationsMap[session.formation_id]?.titre || 'Unknown Formation',
+              participants,
+            };
+          })
+        );
+
+        setFormateurSessions(enrichedSessions);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentUser.id]);
 
   // Générer les dates d'une session
   const getSessionDates = (session) => {
@@ -40,27 +68,32 @@ export default function FormateurPresences() {
   };
 
   // Initialiser les données de présence
-  const initializePresenceData = (session, date) => {
+  const initializePresenceData = async (session, date) => {
     const key = `${session.id}-${date}`;
     if (!presenceData[key]) {
-      const initialData = {};
-      session.participants.forEach(participant => {
-        // Vérifier si une présence existe déjà
-        const existingPresence = PRESENCES.find(p => 
-          p.inscription_id === participant.id && 
-          p.date_jour === date
+      try {
+        const presencesRes = await trainerService.getSessionPresences(session.id, date);
+        const existingPresences = presencesRes.data || [];
+        const presencesMap = Object.fromEntries(
+          existingPresences.map(p => [p.inscription_id, p])
         );
+
+        const initialData = {};
+        session.participants.forEach(participant => {
+          const existingPresence = presencesMap[participant.id];
+          initialData[participant.id] = {
+            present_cours: existingPresence?.present_cours || false,
+            present_cantine: existingPresence?.present_cantine || false
+          };
+        });
         
-        initialData[participant.id] = {
-          present_cours: existingPresence?.present_cours || false,
-          present_cantine: existingPresence?.present_cantine || false
-        };
-      });
-      
-      setPresenceData(prev => ({
-        ...prev,
-        [key]: initialData
-      }));
+        setPresenceData(prev => ({
+          ...prev,
+          [key]: initialData
+        }));
+      } catch (error) {
+        console.error('Error fetching presences:', error);
+      }
     }
   };
 
@@ -90,16 +123,25 @@ export default function FormateurPresences() {
     }));
   };
 
-  const savePresences = () => {
+  const savePresences = async () => {
     const key = `${selectedSession.id}-${selectedDate}`;
     const data = presenceData[key];
     
     if (!data) return;
 
-    console.log('Saving presences for', selectedDate, ':', data);
-    
-    // Ici vous ajouteriez l'appel API pour sauvegarder
-    alert('Attendance saved successfully!');
+    try {
+      const attendanceData = Object.entries(data).map(([participantId, presence]) => ({
+        inscription_id: parseInt(participantId),
+        present_cours: presence.present_cours,
+        present_cantine: presence.present_cantine,
+      }));
+
+      await trainerService.markAttendance(selectedSession.id, selectedDate, attendanceData);
+      alert('Attendance saved successfully!');
+    } catch (error) {
+      console.error('Error saving presences:', error);
+      alert('Error saving attendance. Please try again.');
+    }
   };
 
   const markAllPresent = (field) => {
@@ -147,7 +189,7 @@ export default function FormateurPresences() {
             <p className="text-body-md text-on-surface-variant mt-1">Choose a training session</p>
           </div>
           <div className="p-6 space-y-3">
-            {formateurSessions.length > 0 ? (
+            {!loading && formateurSessions.length > 0 ? (
               formateurSessions.map((session) => (
                 <button
                   key={session.id}
@@ -170,7 +212,7 @@ export default function FormateurPresences() {
             ) : (
               <div className="text-center py-8">
                 <Icon name="event_busy" className="text-on-surface-variant/40 text-[48px] mx-auto mb-3" />
-                <p className="text-body-md text-on-surface-variant">No sessions available</p>
+                <p className="text-body-md text-on-surface-variant">{loading ? 'Loading sessions...' : 'No sessions available'}</p>
               </div>
             )}
           </div>

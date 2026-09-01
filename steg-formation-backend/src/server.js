@@ -47,6 +47,14 @@ app.use('/api/roles', require('./routes/role.routes'));
 app.use('/api/formateurs', require('./routes/formateur.routes'));
 app.use('/api/formations', require('./routes/formation.routes'));
 app.use('/api/sessions', require('./routes/session.routes'));
+app.use('/api/inscriptions', require('./routes/inscription.routes'));
+app.use('/api/presences', require('./routes/presence.routes'));
+app.use('/api/evaluations', require('./routes/evaluation.routes'));
+app.use('/api/certifications', require('./routes/certification.routes'));
+app.use('/api/reclamations', require('./routes/reclamation.routes'));
+app.use('/api/factures', require('./routes/facture.routes'));
+app.use('/api/supports', require('./routes/supportFormation.routes'));
+app.use('/api/dashboard', require('./routes/dashboard.routes'));
 
 // Swagger : désactivé en production sauf si ENABLE_SWAGGER=true
 if (ENABLE_SWAGGER) {

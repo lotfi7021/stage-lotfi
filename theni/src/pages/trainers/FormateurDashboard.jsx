@@ -1,10 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
-import { SESSIONS, FORMATIONS, INSCRIPTIONS, UTILISATEURS, PRESENCES, CURRENT_USER } from '../../data/mock';
+import trainerService from '../../services/trainers/trainerService';
+import participantService from '../../services/participants/participantService';
+import formationService from '../../services/formations/formationService';
 
 export default function FormateurDashboard() {
-  // Récupérer les sessions du formateur connecté
-  const formateurSessions = SESSIONS.filter(session => session.formateur_id === CURRENT_USER.id);
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const [formateurSessions, setFormateurSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const sessionsRes = await trainerService.getTrainerSessions(currentUser.id);
+        const sessions = sessionsRes.data || [];
+
+        const formationsRes = await formationService.getAllFormations();
+        const formations = formationsRes.data || [];
+        const formationsMap = Object.fromEntries(formations.map(f => [f.id, f]));
+
+        const enrichedSessions = await Promise.all(
+          sessions.map(async (session) => {
+            const inscriptionsRes = await participantService.getAllInscriptions({ sessionId: session.id });
+            const inscriptions = inscriptionsRes.data || [];
+            return {
+              ...session,
+              formation: formationsMap[session.formation_id]?.titre || 'Unknown Formation',
+              participantsCount: inscriptions.length
+            };
+          })
+        );
+
+        setFormateurSessions(enrichedSessions);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentUser.id]);
   
   // Calculer les statistiques
   const totalSessions = formateurSessions.length;
@@ -16,16 +53,7 @@ export default function FormateurDashboard() {
   const prochainesSessions = formateurSessions
     .filter(s => s.statut === 'Planned')
     .sort((a, b) => new Date(a.date_debut) - new Date(b.date_debut))
-    .slice(0, 3)
-    .map(session => {
-      const formation = FORMATIONS.find(f => f.id === session.formation_id);
-      const inscriptions = INSCRIPTIONS.filter(i => i.session_id === session.id);
-      return {
-        ...session,
-        formation: formation?.titre || 'Unknown Formation',
-        participantsCount: inscriptions.length
-      };
-    });
+    .slice(0, 3);
 
   // Activité récente
   const activiteRecente = [
@@ -62,7 +90,7 @@ export default function FormateurDashboard() {
           </div>
           <div>
             <h1 className="font-headline-lg text-headline-lg text-on-background">
-              Welcome, {CURRENT_USER.prenom} {CURRENT_USER.nom}
+              Welcome, {currentUser.prenom} {currentUser.nom}
             </h1>
             <p className="font-body-md text-on-surface-variant">
               Trainer Dashboard • Today is {new Date().toLocaleDateString('en-US', { 

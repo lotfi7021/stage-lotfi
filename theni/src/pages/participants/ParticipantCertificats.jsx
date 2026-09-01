@@ -1,63 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
-import { INSCRIPTIONS, SESSIONS, FORMATIONS, CERTIFICATIONS, UTILISATEURS, CURRENT_USER } from '../../data/mock';
+import certificationService from '../../services/certifications/certificationService';
 
 export default function ParticipantCertificats() {
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'valid', 'expired'
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const [viewMode, setViewMode] = useState('grid');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [selectedCertificate, setSelectedCertificate] = useState(null);
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Récupérer les certificats du participant
-  const participantCertificates = INSCRIPTIONS
-    .filter(inscription => inscription.participant_id === CURRENT_USER.id)
-    .map(inscription => {
-      const session = SESSIONS.find(s => s.id === inscription.session_id);
-      const formation = FORMATIONS.find(f => f.id === session?.formation_id);
-      const certification = CERTIFICATIONS.find(c => c.inscription_id === inscription.id);
-      const formateur = UTILISATEURS.find(u => u.id === session?.formateur_id);
-      
-      if (!certification) return null;
-      
-      const isExpired = new Date(certification.date_expiration) < new Date();
-      const daysUntilExpiration = Math.ceil(
-        (new Date(certification.date_expiration) - new Date()) / (1000 * 60 * 60 * 24)
-      );
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await certificationService.getAllCertifications({ participantId: currentUser.id, limit: 100 });
+        const certs = (res.data || []).map((cert) => {
+          const expirationDate = cert.dateExpiration ? new Date(cert.dateExpiration) : null;
+          const isExpired = expirationDate ? expirationDate < new Date() : false;
+          const daysUntilExpiration = expirationDate
+            ? Math.ceil((expirationDate - new Date()) / (1000 * 60 * 60 * 24))
+            : null;
 
-      return {
-        ...certification,
-        inscription,
-        session,
-        formation,
-        formateur,
-        isExpired,
-        daysUntilExpiration,
-        isExpiringSoon: daysUntilExpiration <= 90 && daysUntilExpiration > 0
-      };
-    })
-    .filter(Boolean);
+          return {
+            ...cert,
+            isExpired,
+            daysUntilExpiration,
+            isExpiringSoon: daysUntilExpiration !== null && daysUntilExpiration <= 90 && daysUntilExpiration > 0,
+          };
+        });
+        setCertificates(certs);
+      } catch (error) {
+        console.error('Error fetching certificates:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Filtrer les certificats
-  const filteredCertificates = participantCertificates.filter(cert => {
+    fetchData();
+  }, [currentUser.id]);
+
+  const filteredCertificates = certificates.filter((cert) => {
     if (filterStatus === 'valid') return !cert.isExpired;
     if (filterStatus === 'expired') return cert.isExpired;
     return true;
   });
 
   const downloadCertificate = (cert) => {
-    console.log('Downloading certificate:', cert.id);
-    // Ici vous ajouteriez la logique de téléchargement
-    alert(`Downloading certificate for ${cert.formation?.titre}`);
+    alert(`Downloading certificate: ${cert.reference}`);
   };
 
   const verifyCertificate = (cert) => {
-    console.log('Verifying certificate with QR:', cert.qr_code_token);
-    // Ici vous ajouteriez la logique de vérification
-    alert(`Certificate verification: ${cert.qr_code_token}`);
+    alert(`Certificate verification: ${cert.qrCode || cert.reference}`);
   };
 
   const getStatusColor = (cert) => {
     if (cert.isExpired) return 'bg-error-container text-on-error-container border-error';
-    if (cert.isExpiringSoon) return 'bg-warning-container text-on-warning-container border-warning';
+    if (cert.isExpiringSoon) return 'bg-amber-100 text-amber-800 border-amber-200';
     return 'bg-success-container text-on-success-container border-success';
   };
 
@@ -69,19 +68,17 @@ export default function ParticipantCertificats() {
 
   const getCategoryColor = (category) => {
     const colors = {
-      'Safety': 'bg-error-container text-on-error-container',
-      'Management': 'bg-primary-container text-on-primary',
-      'Technical Skills': 'bg-secondary-container text-on-secondary-container',
-      'Leadership': 'bg-tertiary-container text-on-tertiary-container',
-      'Digital Transformation': 'bg-surface-variant text-on-surface-variant',
-      'Quality Management': 'bg-success-container text-on-success-container'
+      Safety: 'bg-error-container text-on-error-container',
+      Management: 'bg-primary-container text-on-primary',
+      Technical: 'bg-secondary-container text-on-secondary-container',
+      IT: 'bg-primary-container text-on-primary',
     };
     return colors[category] || 'bg-surface-variant text-on-surface-variant';
   };
 
-  const validCertificates = participantCertificates.filter(c => !c.isExpired).length;
-  const expiredCertificates = participantCertificates.filter(c => c.isExpired).length;
-  const expiringSoon = participantCertificates.filter(c => c.isExpiringSoon).length;
+  const validCertificates = certificates.filter((c) => !c.isExpired).length;
+  const expiredCertificates = certificates.filter((c) => c.isExpired).length;
+  const expiringSoon = certificates.filter((c) => c.isExpiringSoon).length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -93,7 +90,7 @@ export default function ParticipantCertificats() {
             View, download, and manage your training certificates and professional credentials.
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <select
             value={filterStatus}
@@ -104,13 +101,13 @@ export default function ParticipantCertificats() {
             <option value="valid">Valid Only</option>
             <option value="expired">Expired Only</option>
           </select>
-          
+
           <div className="flex rounded-lg border border-outline-variant overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 transition-colors ${
-                viewMode === 'grid' 
-                  ? 'bg-primary-container text-on-primary' 
+                viewMode === 'grid'
+                  ? 'bg-primary-container text-on-primary'
                   : 'bg-surface text-on-surface hover:bg-surface-container'
               }`}
             >
@@ -119,8 +116,8 @@ export default function ParticipantCertificats() {
             <button
               onClick={() => setViewMode('list')}
               className={`p-2 transition-colors ${
-                viewMode === 'list' 
-                  ? 'bg-primary-container text-on-primary' 
+                viewMode === 'list'
+                  ? 'bg-primary-container text-on-primary'
                   : 'bg-surface text-on-surface hover:bg-surface-container'
               }`}
             >
@@ -137,7 +134,7 @@ export default function ParticipantCertificats() {
             <span className="px-2 py-1 rounded-full text-label-sm font-bold uppercase bg-primary-container text-on-primary">Total</span>
             <span className="w-2.5 h-2.5 rounded-full mt-1 bg-primary" />
           </div>
-          <p className="font-display-sm text-display-sm text-on-surface font-bold">{participantCertificates.length}</p>
+          <p className="font-display-sm text-display-sm text-on-surface font-bold">{certificates.length}</p>
           <p className="font-label-sm text-on-surface-variant">Total Certificates</p>
         </div>
 
@@ -152,8 +149,8 @@ export default function ParticipantCertificats() {
 
         <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 ambient-shadow flex flex-col gap-3">
           <div className="flex justify-between items-start">
-            <span className="px-2 py-1 rounded-full text-label-sm font-bold uppercase bg-warning-container text-on-warning-container">Warning</span>
-            <span className="w-2.5 h-2.5 rounded-full mt-1 bg-warning" />
+            <span className="px-2 py-1 rounded-full text-label-sm font-bold uppercase bg-amber-100 text-amber-800">Warning</span>
+            <span className="w-2.5 h-2.5 rounded-full mt-1 bg-amber-500" />
           </div>
           <p className="font-display-sm text-display-sm text-on-surface font-bold">{expiringSoon}</p>
           <p className="font-label-sm text-on-surface-variant">Expiring Soon</p>
@@ -170,15 +167,15 @@ export default function ParticipantCertificats() {
       </div>
 
       {/* Certificates Display */}
-      {filteredCertificates.length > 0 ? (
+      {!loading && filteredCertificates.length > 0 ? (
         <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6' : 'space-y-4'}>
-          {filteredCertificates.map((cert) => (
+          {filteredCertificates.map((cert) =>
             viewMode === 'grid' ? (
               <div key={cert.id} className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 ambient-shadow hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-2">
                     <span className={`px-2 py-1 rounded-full text-label-sm font-bold uppercase ${getCategoryColor(cert.formation?.categorie)}`}>
-                      {cert.formation?.categorie}
+                      {cert.formation?.categorie || '—'}
                     </span>
                   </div>
                   <div className="w-12 h-12 bg-tertiary-container rounded-lg flex items-center justify-center">
@@ -187,21 +184,21 @@ export default function ParticipantCertificats() {
                 </div>
 
                 <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-2 line-clamp-2">
-                  {cert.formation?.titre}
+                  {cert.formation?.titre || '—'}
                 </h3>
 
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">Obtained:</span>
-                    <span className="text-on-surface">{new Date(cert.date_obtention).toLocaleDateString()}</span>
+                    <span className="text-on-surface-variant">Reference:</span>
+                    <span className="text-on-surface font-mono">{cert.reference}</span>
+                  </div>
+                  <div className="flex justify-between text-body-sm">
+                    <span className="text-on-surface-variant">Issued:</span>
+                    <span className="text-on-surface">{cert.dateEmission ? new Date(cert.dateEmission).toLocaleDateString('fr-TN') : '—'}</span>
                   </div>
                   <div className="flex justify-between text-body-sm">
                     <span className="text-on-surface-variant">Expires:</span>
-                    <span className="text-on-surface">{new Date(cert.date_expiration).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">Trainer:</span>
-                    <span className="text-on-surface">{cert.formateur?.prenom} {cert.formateur?.nom}</span>
+                    <span className="text-on-surface">{cert.dateExpiration ? new Date(cert.dateExpiration).toLocaleDateString('fr-TN') : '—'}</span>
                   </div>
                 </div>
 
@@ -209,9 +206,6 @@ export default function ParticipantCertificats() {
                   <span className={`px-3 py-1 rounded-full text-label-sm font-medium border ${getStatusColor(cert)}`}>
                     {getStatusText(cert)}
                   </span>
-                  <div className="text-body-sm text-on-surface-variant">
-                    ID: {cert.qr_code_token?.slice(-6)}
-                  </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -237,23 +231,21 @@ export default function ParticipantCertificats() {
                   <div className="w-16 h-16 bg-tertiary-container rounded-xl flex items-center justify-center shrink-0">
                     <Icon name="workspace_premium" className="text-on-tertiary-container text-[32px]" />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`px-2 py-1 rounded-full text-label-sm font-bold uppercase ${getCategoryColor(cert.formation?.categorie)}`}>
-                        {cert.formation?.categorie}
+                        {cert.formation?.categorie || '—'}
                       </span>
                       <span className={`px-3 py-1 rounded-full text-label-sm font-medium border ${getStatusColor(cert)}`}>
                         {getStatusText(cert)}
                       </span>
                     </div>
                     <h3 className="font-headline-sm text-on-surface font-semibold mb-1">
-                      {cert.formation?.titre}
+                      {cert.formation?.titre || '—'}
                     </h3>
                     <div className="text-body-sm text-on-surface-variant">
-                      Obtained: {new Date(cert.date_obtention).toLocaleDateString()} • 
-                      Expires: {new Date(cert.date_expiration).toLocaleDateString()} • 
-                      Trainer: {cert.formateur?.prenom} {cert.formateur?.nom}
+                      Ref: {cert.reference} • Issued: {cert.dateEmission ? new Date(cert.dateEmission).toLocaleDateString('fr-TN') : '—'}
                     </div>
                   </div>
 
@@ -283,24 +275,19 @@ export default function ParticipantCertificats() {
                 </div>
               </div>
             )
-          ))}
+          )}
         </div>
       ) : (
         <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-12 text-center ambient-shadow">
           <Icon name="workspace_premium" className="text-on-surface-variant/40 text-[64px] mx-auto mb-4" />
           <h3 className="font-headline-sm text-on-surface-variant mb-2">
-            {filterStatus === 'all' ? 'No certificates yet' : `No ${filterStatus} certificates`}
+            {loading ? 'Loading certificates...' : filterStatus === 'all' ? 'No certificates yet' : `No ${filterStatus} certificates`}
           </h3>
           <p className="text-body-sm text-on-surface-variant mb-4">
-            {filterStatus === 'all' 
+            {!loading && filterStatus === 'all'
               ? 'Complete training programs to earn certificates'
-              : `You don't have any ${filterStatus} certificates at the moment`}
+              : ''}
           </p>
-          {filterStatus === 'all' && (
-            <button className="bg-primary-container text-on-primary hover:bg-[#004494] transition-colors rounded-xl px-6 py-3 text-label-md">
-              Browse Training Catalog
-            </button>
-          )}
         </div>
       )}
 
@@ -319,36 +306,36 @@ export default function ParticipantCertificats() {
               <div className="space-y-4">
                 <div>
                   <div className="text-label-sm text-on-surface-variant mb-1">Training Program</div>
-                  <div className="text-body-md text-on-surface font-semibold">{selectedCertificate.formation?.titre}</div>
+                  <div className="text-body-md text-on-surface font-semibold">{selectedCertificate.formation?.titre || '—'}</div>
                 </div>
-                
+
                 <div>
                   <div className="text-label-sm text-on-surface-variant mb-1">Category</div>
                   <span className={`px-2 py-1 rounded-full text-label-sm font-bold uppercase ${getCategoryColor(selectedCertificate.formation?.categorie)}`}>
-                    {selectedCertificate.formation?.categorie}
+                    {selectedCertificate.formation?.categorie || '—'}
                   </span>
                 </div>
 
                 <div>
-                  <div className="text-label-sm text-on-surface-variant mb-1">Trainer</div>
-                  <div className="text-body-md text-on-surface">{selectedCertificate.formateur?.prenom} {selectedCertificate.formateur?.nom}</div>
+                  <div className="text-label-sm text-on-surface-variant mb-1">Reference</div>
+                  <div className="text-body-md text-on-surface font-mono">{selectedCertificate.reference}</div>
                 </div>
 
                 <div>
-                  <div className="text-label-sm text-on-surface-variant mb-1">Training Duration</div>
-                  <div className="text-body-md text-on-surface">{selectedCertificate.formation?.duree_jours} days</div>
+                  <div className="text-label-sm text-on-surface-variant mb-1">Duration</div>
+                  <div className="text-body-md text-on-surface">{selectedCertificate.formation?.duree || '—'}</div>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
                   <div className="text-label-sm text-on-surface-variant mb-1">Issue Date</div>
-                  <div className="text-body-md text-on-surface">{new Date(selectedCertificate.date_obtention).toLocaleDateString()}</div>
+                  <div className="text-body-md text-on-surface">{selectedCertificate.dateEmission ? new Date(selectedCertificate.dateEmission).toLocaleDateString('fr-TN') : '—'}</div>
                 </div>
 
                 <div>
                   <div className="text-label-sm text-on-surface-variant mb-1">Expiration Date</div>
-                  <div className="text-body-md text-on-surface">{new Date(selectedCertificate.date_expiration).toLocaleDateString()}</div>
+                  <div className="text-body-md text-on-surface">{selectedCertificate.dateExpiration ? new Date(selectedCertificate.dateExpiration).toLocaleDateString('fr-TN') : '—'}</div>
                 </div>
 
                 <div>
@@ -359,8 +346,8 @@ export default function ParticipantCertificats() {
                 </div>
 
                 <div>
-                  <div className="text-label-sm text-on-surface-variant mb-1">Verification Code</div>
-                  <div className="text-body-md text-on-surface font-mono">{selectedCertificate.qr_code_token}</div>
+                  <div className="text-label-sm text-on-surface-variant mb-1">QR Code</div>
+                  <div className="text-body-md text-on-surface font-mono">{selectedCertificate.qrCode || '—'}</div>
                 </div>
               </div>
             </div>

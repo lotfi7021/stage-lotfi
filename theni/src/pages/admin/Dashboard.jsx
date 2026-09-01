@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -15,7 +15,7 @@ import Icon from '../../components/common/Icon';
 import StatusBadge from '../../components/common/StatusBadge';
 import { Card } from '../../components/common/Card';
 import Button from '../../components/common/Button';
-import { DASHBOARD_STATS, UPCOMING_SESSIONS, DASHBOARD_ACTIVITY, CHART_DATA } from '../../data/mock';
+import dashboardService from '../../services/dashboard/dashboardService';
 
 ChartJS.register(
   CategoryScale,
@@ -27,37 +27,6 @@ ChartJS.register(
   Legend,
   Filler
 );
-
-const KPIS = [
-  {
-    label: 'Formations actives',
-    icon: 'school',
-    value: String(DASHBOARD_STATS.activeFormations),
-    badge: DASHBOARD_STATS.trends.formations,
-    trend: true
-  },
-  {
-    label: 'Participants',
-    icon: 'group',
-    value: String(DASHBOARD_STATS.totalParticipants),
-    badge: DASHBOARD_STATS.trends.participants,
-    trend: true
-  },
-  {
-    label: 'Sessions planifiées',
-    icon: 'event',
-    value: String(DASHBOARD_STATS.plannedSessions),
-    badge: DASHBOARD_STATS.trends.sessions,
-    trend: false
-  },
-  {
-    label: 'Taux satisfaction',
-    icon: 'sentiment_satisfied',
-    value: `${DASHBOARD_STATS.satisfactionRate}%`,
-    badge: DASHBOARD_STATS.trends.satisfaction,
-    trend: true
-  }
-];
 
 const ACTIVITY_STYLES = {
   inscription: 'bg-primary-container text-on-primary',
@@ -118,36 +87,77 @@ const doughnutOptions = {
 };
 
 export default function Dashboard() {
-  const lineData = {
-    labels: CHART_DATA.participantsTrend.labels,
-    datasets: [
-      {
-        label: 'Participants',
-        data: CHART_DATA.participantsTrend.values,
-        borderColor: '#0056b3',
-        backgroundColor: 'rgba(0, 86, 179, 0.1)',
-        borderWidth: 2,
-        pointBackgroundColor: '#0056b3',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: '#0056b3',
-        fill: true,
-        tension: 0.4
-      }
-    ]
-  };
+  const [stats, setStats] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [chartData, setChartData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const doughnutData = {
-    labels: CHART_DATA.categoryBreakdown.labels,
-    datasets: [
-      {
-        data: CHART_DATA.categoryBreakdown.values,
-        backgroundColor: ['#0056b3', '#3a5f94', '#9fc2fe', '#c2c6d4'],
-        borderWidth: 0,
-        hoverOffset: 4
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statsRes, sessionsRes, activityRes, chartsRes] = await Promise.all([
+          dashboardService.getStats(),
+          dashboardService.getUpcomingSessions(),
+          dashboardService.getActivity(),
+          dashboardService.getChartData(),
+        ]);
+        if (statsRes.success) setStats(statsRes.data);
+        if (sessionsRes.success) setSessions(sessionsRes.data);
+        if (activityRes.success) setActivities(activityRes.data);
+        if (chartsRes.success) setChartData(chartsRes.data);
+      } catch {
+        // API not available — show empty state
+      } finally {
+        setLoading(false);
       }
-    ]
-  };
+    };
+    fetchData();
+  }, []);
+
+  const kpis = stats
+    ? [
+        { label: 'Formations actives', icon: 'school', value: String(stats.activeFormations), badge: `${stats.totalFormations} total`, trend: true },
+        { label: 'Participants', icon: 'group', value: String(stats.totalParticipants), badge: 'actifs', trend: true },
+        { label: 'Sessions planifiées', icon: 'event', value: String(stats.plannedSessions), badge: `${stats.totalSessions} total`, trend: false },
+        { label: 'Taux satisfaction', icon: 'sentiment_satisfied', value: `${stats.satisfactionRate}%`, badge: `${stats.totalPresences} présences`, trend: true },
+      ]
+    : [];
+
+  const lineData = chartData
+    ? {
+        labels: chartData.participantsTrend.labels,
+        datasets: [
+          {
+            label: 'Participants',
+            data: chartData.participantsTrend.values,
+            borderColor: '#0056b3',
+            backgroundColor: 'rgba(0, 86, 179, 0.1)',
+            borderWidth: 2,
+            pointBackgroundColor: '#0056b3',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: '#0056b3',
+            fill: true,
+            tension: 0.4
+          }
+        ]
+      }
+    : null;
+
+  const doughnutData = chartData
+    ? {
+        labels: chartData.categoryBreakdown.labels,
+        datasets: [
+          {
+            data: chartData.categoryBreakdown.values,
+            backgroundColor: ['#0056b3', '#3a5f94', '#9fc2fe', '#c2c6d4'],
+            borderWidth: 0,
+            hoverOffset: 4
+          }
+        ]
+      }
+    : null;
 
   return (
     <div className="flex flex-col gap-8 md:gap-[64px]">
@@ -169,7 +179,14 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
-        {KPIS.map((kpi) => (
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-2 bg-surface-container-lowest rounded-xl p-6 border border-[#E9ECEF] shadow-ambient-sm animate-pulse">
+                <div className="h-4 bg-surface-container rounded w-24" />
+                <div className="h-8 bg-surface-container rounded w-16" />
+              </div>
+            ))
+          : kpis.map((kpi) => (
           <div
             key={kpi.label}
             className="flex flex-col gap-2 bg-surface-container-lowest rounded-xl p-6 border border-[#E9ECEF] shadow-ambient-sm"
@@ -215,7 +232,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="text-body-md">
-                  {UPCOMING_SESSIONS.map((session) => (
+                  {sessions.map((session) => (
                     <tr
                       key={session.id}
                       className="border-b border-surface-variant hover:bg-surface-container-low transition-colors"
@@ -223,14 +240,21 @@ export default function Dashboard() {
                       <td className="py-4 px-4 font-medium text-on-background">
                         {session.formation}
                       </td>
-                      <td className="py-4 px-4 text-on-surface-variant">{session.trainer}</td>
-                      <td className="py-4 px-4 text-on-surface-variant">{session.date}</td>
+                      <td className="py-4 px-4 text-on-surface-variant">{session.formateur}</td>
+                      <td className="py-4 px-4 text-on-surface-variant">{new Date(session.dateDebut).toLocaleDateString('fr-TN')}</td>
                       <td className="py-4 px-4 text-on-surface-variant">{session.participants}</td>
                       <td className="py-4 px-4">
-                        <StatusBadge status={session.status} />
+                        <StatusBadge status={session.statut} />
                       </td>
                     </tr>
                   ))}
+                  {sessions.length === 0 && (
+                    <tr>
+                      <td className="py-4 px-4 text-on-surface-variant text-center" colSpan={5}>
+                        Aucune session planifiée.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -239,19 +263,26 @@ export default function Dashboard() {
           <Card className="p-6 flex flex-col">
             <h2 className="text-headline-md text-on-background m-0 mb-6">Activité Récente</h2>
             <ul className="flex flex-col gap-4">
-              {DASHBOARD_ACTIVITY.map((activity) => (
+              {activities.map((activity) => (
                 <li key={activity.id} className="flex items-start gap-4">
                   <div
-                    className={`${ACTIVITY_STYLES[activity.type]} p-2 rounded-full`}
+                    className={`${ACTIVITY_STYLES[activity.type] || 'bg-surface-container text-on-surface-variant'} p-2 rounded-full`}
                   >
-                    <Icon name={ACTIVITY_ICONS[activity.type]} size={20} />
+                    <Icon name={ACTIVITY_ICONS[activity.type] || 'info'} size={20} />
                   </div>
                   <div>
                     <p className="text-body-md text-on-background m-0">{activity.text}</p>
-                    <span className="text-label-sm text-on-surface-variant">{activity.time}</span>
+                    <span className="text-label-sm text-on-surface-variant">
+                      {new Date(activity.date).toLocaleDateString('fr-TN')}
+                    </span>
                   </div>
                 </li>
               ))}
+              {activities.length === 0 && (
+                <li className="text-on-surface-variant text-body-md text-center py-4">
+                  Aucune activité récente.
+                </li>
+              )}
             </ul>
           </Card>
         </div>
@@ -262,7 +293,13 @@ export default function Dashboard() {
               Évolution des Participants
             </h2>
             <div className="flex-1 relative w-full h-full">
-              <Line data={lineData} options={lineOptions} />
+              {lineData ? (
+                <Line data={lineData} options={lineOptions} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-on-surface-variant">
+                  {loading ? 'Chargement...' : 'Aucune donnée disponible'}
+                </div>
+              )}
             </div>
           </Card>
           <Card className="p-6 flex flex-col h-[350px]">
@@ -270,7 +307,13 @@ export default function Dashboard() {
               Répartition par Catégorie
             </h2>
             <div className="flex-1 relative w-full h-full pb-4">
-              <Doughnut data={doughnutData} options={doughnutOptions} />
+              {doughnutData ? (
+                <Doughnut data={doughnutData} options={doughnutOptions} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-on-surface-variant">
+                  {loading ? 'Chargement...' : 'Aucune donnée disponible'}
+                </div>
+              )}
             </div>
           </Card>
         </div>

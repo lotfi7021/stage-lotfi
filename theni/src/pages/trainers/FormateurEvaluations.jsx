@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
-import { SESSIONS, FORMATIONS, INSCRIPTIONS, UTILISATEURS, EVALUATIONS, CURRENT_USER } from '../../data/mock';
+import trainerService from '../../services/trainers/trainerService';
+import participantService from '../../services/participants/participantService';
+import formationService from '../../services/formations/formationService';
 
 const EVALUATION_TYPES = [
   { value: 'Pre-training', label: 'Pre-Training Assessment', icon: 'quiz' },
@@ -10,52 +12,85 @@ const EVALUATION_TYPES = [
 ];
 
 export default function FormateurEvaluations() {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedEvaluationType, setSelectedEvaluationType] = useState('');
   const [evaluationData, setEvaluationData] = useState({});
   const [viewMode, setViewMode] = useState('entry'); // 'entry' ou 'history'
+  const [formateurSessions, setFormateurSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Récupérer les sessions du formateur
-  const formateurSessions = SESSIONS
-    .filter(session => session.formateur_id === CURRENT_USER.id)
-    .map(session => {
-      const formation = FORMATIONS.find(f => f.id === session.formation_id);
-      const inscriptions = INSCRIPTIONS.filter(i => i.session_id === session.id);
-      return {
-        ...session,
-        formation: formation?.titre || 'Unknown Formation',
-        participants: inscriptions.map(inscription => {
-          const user = UTILISATEURS.find(u => u.id === inscription.participant_id);
-          return {
-            ...inscription,
-            ...user
-          };
-        })
-      };
-    });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const sessionsRes = await trainerService.getTrainerSessions(currentUser.id);
+        const sessions = sessionsRes.data || [];
+
+        const formationsRes = await formationService.getAllFormations();
+        const formations = formationsRes.data || [];
+        const formationsMap = Object.fromEntries(formations.map(f => [f.id, f]));
+
+        const enrichedSessions = await Promise.all(
+          sessions.map(async (session) => {
+            const inscriptionsRes = await participantService.getAllInscriptions({ sessionId: session.id });
+            const inscriptions = inscriptionsRes.data || [];
+
+            const participants = await Promise.all(
+              inscriptions.map(async (inscription) => {
+                const userRes = await import('../../services/auth/userService').then(m => m.default.getUserById(inscription.participant_id));
+                return { ...inscription, ...userRes.data };
+              })
+            );
+
+            return {
+              ...session,
+              formation: formationsMap[session.formation_id]?.titre || 'Unknown Formation',
+              participants,
+            };
+          })
+        );
+
+        setFormateurSessions(enrichedSessions);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentUser.id]);
 
   // Initialiser les données d'évaluation
-  const initializeEvaluationData = (session, type) => {
+  const initializeEvaluationData = async (session, type) => {
     const key = `${session.id}-${type}`;
     if (!evaluationData[key]) {
-      const initialData = {};
-      session.participants.forEach(participant => {
-        // Vérifier si une évaluation existe déjà
-        const existingEval = EVALUATIONS.find(e => 
-          e.inscription_id === participant.id && 
-          e.type_evaluation === type
+      try {
+        const evalsRes = await trainerService.getSessionEvaluations(session.id);
+        const existingEvaluations = evalsRes.data || [];
+        const evalsMap = Object.fromEntries(
+          existingEvaluations
+            .filter(e => e.type_evaluation === type)
+            .map(e => [e.inscription_id, e])
         );
+
+        const initialData = {};
+        session.participants.forEach(participant => {
+          const existingEval = evalsMap[participant.id];
+          initialData[participant.id] = {
+            note: existingEval?.note || '',
+            commentaires: existingEval?.commentaires || ''
+          };
+        });
         
-        initialData[participant.id] = {
-          note: existingEval?.note || '',
-          commentaires: existingEval?.commentaires || ''
-        };
-      });
-      
-      setEvaluationData(prev => ({
-        ...prev,
-        [key]: initialData
-      }));
+        setEvaluationData(prev => ({
+          ...prev,
+          [key]: initialData
+        }));
+      } catch (error) {
+        console.error('Error fetching evaluations:', error);
+      }
     }
   };
 
@@ -85,7 +120,7 @@ export default function FormateurEvaluations() {
     }));
   };
 
-  const saveEvaluations = () => {
+  const saveEvaluations = async () => {
     const key = `${selectedSession.id}-${selectedEvaluationType}`;
     const data = evaluationData[key];
     
@@ -102,10 +137,22 @@ export default function FormateurEvaluations() {
       return;
     }
 
-    console.log('Saving evaluations for', selectedEvaluationType, ':', data);
-    
-    // Ici vous ajouteriez l'appel API pour sauvegarder
-    alert('Evaluations saved successfully!');
+    try {
+      const evaluationsData = {
+        type_evaluation: selectedEvaluationType,
+        evaluations: Object.entries(data).map(([participantId, evaluation]) => ({
+          inscription_id: parseInt(participantId),
+          note: evaluation.note ? parseFloat(evaluation.note) : null,
+          commentaires: evaluation.commentaires || '',
+        })),
+      };
+
+      await trainerService.submitEvaluations(selectedSession.id, evaluationsData);
+      alert('Evaluations saved successfully!');
+    } catch (error) {
+      console.error('Error saving evaluations:', error);
+      alert('Error saving evaluations. Please try again.');
+    }
   };
 
   const calculateSessionStats = () => {
@@ -177,7 +224,7 @@ export default function FormateurEvaluations() {
                 <p className="text-body-md text-on-surface-variant mt-1">Choose a training session</p>
               </div>
               <div className="p-6 space-y-3">
-                {formateurSessions.length > 0 ? (
+                {!loading && formateurSessions.length > 0 ? (
                   formateurSessions.map((session) => (
                     <button
                       key={session.id}
@@ -200,7 +247,7 @@ export default function FormateurEvaluations() {
                 ) : (
                   <div className="text-center py-8">
                     <Icon name="event_busy" className="text-on-surface-variant/40 text-[48px] mx-auto mb-3" />
-                    <p className="text-body-md text-on-surface-variant">No sessions available</p>
+                    <p className="text-body-md text-on-surface-variant">{loading ? 'Loading sessions...' : 'No sessions available'}</p>
                   </div>
                 )}
               </div>
