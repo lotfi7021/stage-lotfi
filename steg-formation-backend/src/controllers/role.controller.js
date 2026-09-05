@@ -1,5 +1,7 @@
 const prisma = require('../config/prisma');
 
+const ROLES_SYSTEME = ['admin', 'formateur', 'participant'];
+
 /**
  * @GET /api/roles
  * Liste tous les rôles
@@ -29,7 +31,8 @@ exports.getRoles = async (req, res, next) => {
  */
 exports.createRole = async (req, res, next) => {
   try {
-    const { nomRole, description } = req.body;
+    let { nomRole, description } = req.body;
+    nomRole = nomRole.toLowerCase();
 
     const roleExistant = await prisma.role.findUnique({ where: { nomRole } });
     if (roleExistant) {
@@ -53,14 +56,22 @@ exports.createRole = async (req, res, next) => {
 exports.updateRole = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nomRole, description } = req.body;
+    let { nomRole, description } = req.body;
 
     const roleExistant = await prisma.role.findUnique({ where: { id: Number(id) } });
     if (!roleExistant) {
       return res.status(404).json({ error: 'Rôle introuvable.' });
     }
 
-    if (nomRole && nomRole !== roleExistant.nomRole) {
+    if (ROLES_SYSTEME.includes(roleExistant.nomRole)) {
+      if (nomRole && nomRole.toLowerCase() !== roleExistant.nomRole) {
+        return res.status(403).json({ error: 'Impossible de renommer un rôle système.' });
+      }
+      nomRole = undefined;
+    }
+
+    if (nomRole) {
+      nomRole = nomRole.toLowerCase();
       const doublon = await prisma.role.findUnique({ where: { nomRole } });
       if (doublon) {
         return res.status(409).json({ error: 'Ce rôle existe déjà.' });
@@ -96,6 +107,10 @@ exports.deleteRole = async (req, res, next) => {
 
     if (!role) {
       return res.status(404).json({ error: 'Rôle introuvable.' });
+    }
+
+    if (ROLES_SYSTEME.includes(role.nomRole)) {
+      return res.status(403).json({ error: 'Impossible de supprimer un rôle système.' });
     }
 
     if (role._count.utilisateurs > 0) {

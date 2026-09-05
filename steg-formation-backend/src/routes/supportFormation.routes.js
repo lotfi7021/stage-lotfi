@@ -77,6 +77,7 @@ router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getSupport
 router.get(
   '/:id',
   authMiddleware,
+  rbacMiddleware('admin', 'formateur', 'participant'),
   [param('id').isInt()],
   validate,
   getSupportById
@@ -120,7 +121,6 @@ router.post(
     body('categorie').optional().isString(),
     body('type').optional().isString(),
     body('taille').optional().isString(),
-    body('uploaderId').isInt(),
   ],
   validate,
   createSupport

@@ -109,6 +109,20 @@ exports.getInscriptionById = async (req, res, next) => {
       return res.status(404).json({ error: 'Inscription introuvable.' });
     }
 
+    if (req.user.role === 'participant' && inscription.participantId !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      if (!formateur || inscription.session.formateur.id !== formateur.id) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+      }
+    }
+
     res.status(200).json({ success: true, inscription });
   } catch (err) {
     next(err);
@@ -121,7 +135,11 @@ exports.getInscriptionById = async (req, res, next) => {
  */
 exports.createInscription = async (req, res, next) => {
   try {
-    const { sessionId, participantId, statut } = req.body;
+    let { sessionId, participantId, statut } = req.body;
+
+    if (req.user.role === 'participant') {
+      participantId = req.user.id;
+    }
 
     // Vérifier que la session existe
     const session = await prisma.session.findUnique({
@@ -133,6 +151,16 @@ exports.createInscription = async (req, res, next) => {
 
     if (!session) {
       return res.status(404).json({ error: 'Session introuvable.' });
+    }
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      if (!formateur || session.formateurId !== formateur.id) {
+        return res.status(403).json({ error: 'Vous ne pouvez inscrire des participants que dans vos propres sessions.' });
+      }
     }
 
     // Vérifier que la session n'est pas annulée ou terminée
@@ -291,7 +319,22 @@ exports.getInscriptionsByParticipant = async (req, res, next) => {
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
     const skip = (pageNum - 1) * limitNum;
 
+    if (req.user.role === 'participant' && Number(participantId) !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
+
     const where = { participantId: Number(participantId) };
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      if (!formateur) {
+        return res.status(404).json({ error: 'Profil formateur introuvable.' });
+      }
+      where.session = { formateurId: formateur.id };
+    }
 
     if (statut) {
       where.statut = statut;

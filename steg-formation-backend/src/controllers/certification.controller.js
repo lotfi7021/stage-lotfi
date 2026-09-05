@@ -87,6 +87,20 @@ exports.getCertificationById = async (req, res, next) => {
       return res.status(404).json({ error: 'Certification introuvable.' });
     }
 
+    if (req.user.role === 'participant' && certification.participantId !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      if (!formateur || certification.formateurId !== formateur.id) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+      }
+    }
+
     res.status(200).json({ success: true, certification });
   } catch (err) {
     next(err);

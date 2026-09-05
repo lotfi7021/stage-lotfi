@@ -28,13 +28,15 @@ const includeFormateur = {
   utilisateur: utilisateurSelect,
 };
 
-const formatFormateur = (f) => ({
+const formatFormateur = (f, role) => ({
   id: f.id,
   utilisateur_id: f.utilisateurId,
   nom: f.utilisateur?.nom || null,
   prenom: f.utilisateur?.prenom || null,
-  email: f.utilisateur?.email || null,
-  matricule: f.utilisateur?.matricule || null,
+  ...(role !== 'participant' && {
+    email: f.utilisateur?.email || null,
+    matricule: f.utilisateur?.matricule || null,
+  }),
   genre: f.utilisateur?.genre || null,
   isActive: f.utilisateur?.isActive ?? null,
   specialite: f.specialite,
@@ -75,7 +77,7 @@ exports.getFormateurs = async (req, res, next) => {
     res.status(200).json({
       success: true,
       count: formateurs.length,
-      formateurs: formateurs.map(formatFormateur),
+      formateurs: formateurs.map((f) => formatFormateur(f, req.user.role)),
     });
   } catch (err) {
     next(err);
@@ -97,7 +99,7 @@ exports.getFormateurById = async (req, res, next) => {
       return res.status(404).json({ error: 'Formateur introuvable.' });
     }
 
-    res.status(200).json({ success: true, formateur: formatFormateur(formateur) });
+    res.status(200).json({ success: true, formateur: formatFormateur(formateur, req.user.role) });
   } catch (err) {
     next(err);
   }
@@ -169,7 +171,7 @@ exports.createFormateur = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Formateur créé avec succès.',
-      formateur: formatFormateur(formateur),
+      formateur: formatFormateur(formateur, req.user.role),
       temporaryPassword: req.body.motDePasse ? undefined : motDePasse,
     });
   } catch (err) {
@@ -243,7 +245,7 @@ exports.updateFormateur = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Formateur mis à jour avec succès.',
-      formateur: formatFormateur(formateur),
+      formateur: formatFormateur(formateur, req.user.role),
     });
   } catch (err) {
     next(err);

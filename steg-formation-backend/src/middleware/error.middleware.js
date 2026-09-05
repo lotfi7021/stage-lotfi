@@ -28,6 +28,11 @@ module.exports = (err, req, res, next) => {
     message = 'Duplicate field value';
   }
 
+  if (err.code === 'P2003') {
+    statusCode = 400;
+    message = 'Impossible de supprimer : des données liées existent encore.';
+  }
+
   if (err.code === 'P2025') {
     statusCode = 404;
     message = 'Record not found';

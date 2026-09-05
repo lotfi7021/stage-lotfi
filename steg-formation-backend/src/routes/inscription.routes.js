@@ -92,7 +92,7 @@ router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur', 'participan
  *       401:
  *         description: Unauthorized
  */
-router.get('/participant/:participantId', authMiddleware, getInscriptionsByParticipant);
+router.get('/participant/:participantId', authMiddleware, rbacMiddleware('admin', 'formateur', 'participant'), [param('participantId').isInt()], validate, getInscriptionsByParticipant);
 
 /**
  * @swagger
@@ -116,6 +116,7 @@ router.get('/participant/:participantId', authMiddleware, getInscriptionsByParti
 router.get(
   '/:id',
   authMiddleware,
+  rbacMiddleware('admin', 'formateur', 'participant'),
   [param('id').isInt()],
   validate,
   getInscriptionById
@@ -153,7 +154,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  rbacMiddleware('admin', 'participant'),
+  rbacMiddleware('admin', 'formateur', 'participant'),
   [
     body('sessionId').isInt(),
     body('participantId').isInt(),

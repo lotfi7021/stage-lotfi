@@ -89,7 +89,7 @@ router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur', 'participan
 router.get(
   '/:id',
   authMiddleware,
-  rbacMiddleware('admin', 'formateur'),
+  rbacMiddleware('admin', 'formateur', 'participant'),
   [param('id').isInt()],
   validate,
   getSessionById
@@ -134,8 +134,13 @@ router.post(
     body('formationId').isInt(),
     body('formateurId').isInt(),
     body('dateDebut').isISO8601(),
-    body('dateFin').isISO8601(),
-    body('heure').optional().isISO8601(),
+    body('dateFin').isISO8601().custom((value, { req }) => {
+      if (req.body.dateDebut && new Date(value) < new Date(req.body.dateDebut)) {
+        throw new Error('La date de fin doit être postérieure à la date de début.');
+      }
+      return true;
+    }),
+    body('heure').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/),
     body('lieu').isString().notEmpty(),
     body('statut').optional().isIn(['PENDING', 'CONFIRMED', 'ONGOING', 'COMPLETED', 'CANCELLED']),
     body('maxParticipants').optional().isInt({ min: 1 }),
@@ -189,7 +194,7 @@ router.put(
     body('formateurId').optional().isInt(),
     body('dateDebut').optional().isISO8601(),
     body('dateFin').optional().isISO8601(),
-    body('heure').optional().isISO8601(),
+    body('heure').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/),
     body('lieu').optional().isString().notEmpty(),
     body('statut').optional().isIn(['PENDING', 'CONFIRMED', 'ONGOING', 'COMPLETED', 'CANCELLED']),
     body('maxParticipants').optional().isInt({ min: 1 }),

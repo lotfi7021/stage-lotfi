@@ -67,7 +67,7 @@ router.post(
   '/',
   authMiddleware,
   rbacMiddleware('admin'),
-  [body('nomRole').isString().notEmpty(), body('description').optional().isString()],
+  [body('nomRole').isString().notEmpty().trim().isLength({ max: 50 }), body('description').optional().isString()],
   validate,
   createRole
 );
@@ -106,7 +106,7 @@ router.put(
   '/:id',
   authMiddleware,
   rbacMiddleware('admin'),
-  [param('id').isInt(), body('nomRole').optional().isString().notEmpty(), body('description').optional().isString()],
+  [param('id').isInt(), body('nomRole').optional().isString().notEmpty().trim().isLength({ max: 50 }), body('description').optional().isString()],
   validate,
   updateRole
 );

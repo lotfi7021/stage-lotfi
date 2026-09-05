@@ -79,6 +79,27 @@ exports.getReclamationById = async (req, res, next) => {
       return res.status(404).json({ error: 'Réclamation introuvable.' });
     }
 
+    if (req.user.role === 'participant' && reclamation.participantId !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
+
+    if (req.user.role === 'formateur') {
+      if (!reclamation.sessionId) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+      }
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      const session = await prisma.session.findUnique({
+        where: { id: reclamation.sessionId },
+        select: { formateurId: true },
+      });
+      if (!formateur || !session || session.formateurId !== formateur.id) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+      }
+    }
+
     res.status(200).json({ success: true, reclamation });
   } catch (err) {
     next(err);
@@ -87,7 +108,11 @@ exports.getReclamationById = async (req, res, next) => {
 
 exports.createReclamation = async (req, res, next) => {
   try {
-    const { participantId, formationId, sessionId, type, priorite, titre, description, centre, date } = req.body;
+    let { participantId, formationId, sessionId, type, priorite, titre, description, centre, date } = req.body;
+
+    if (req.user.role === 'participant') {
+      participantId = req.user.id;
+    }
 
     const participant = await prisma.utilisateur.findUnique({ where: { id: Number(participantId) } });
     if (!participant) {

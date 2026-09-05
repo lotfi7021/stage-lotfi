@@ -56,7 +56,7 @@ const validate = require('../middleware/validate.middleware');
  *       200:
  *         description: Liste des évaluations
  */
-router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getEvaluations);
+router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur', 'participant'), getEvaluations);
 
 /**
  * @swagger
@@ -80,6 +80,7 @@ router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getEvaluat
 router.get(
   '/:id',
   authMiddleware,
+  rbacMiddleware('admin', 'formateur', 'participant'),
   [param('id').isInt()],
   validate,
   getEvaluationById
@@ -122,7 +123,7 @@ router.post(
     body('sessionId').isInt(),
     body('participantId').isInt(),
     body('type').isIn(['PRE', 'POST', 'SATISFACTION']),
-    body('score').optional().isDecimal(),
+    body('score').optional().isFloat({ min: 0, max: 20 }),
     body('commentaire').optional().isString(),
     body('date').isISO8601(),
     body('statut').optional().isIn(['OPEN', 'SUBMITTED', 'VALIDATED']),
@@ -166,7 +167,7 @@ router.put(
   rbacMiddleware('admin', 'formateur'),
   [
     param('id').isInt(),
-    body('score').optional().isDecimal(),
+    body('score').optional().isFloat({ min: 0, max: 20 }),
     body('commentaire').optional().isString(),
     body('statut').optional().isIn(['OPEN', 'SUBMITTED', 'VALIDATED']),
   ],

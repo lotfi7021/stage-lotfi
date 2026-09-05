@@ -137,7 +137,10 @@ router.post(
     body('prerequis').optional().isString(),
     body('modules').optional().isString(),
     body('duree').isString().notEmpty(),
-    body('prix').optional().isDecimal(),
+    body('prix').optional().isDecimal().custom((value) => {
+      if (parseFloat(value) < 0) throw new Error('Le prix doit être positif ou nul.');
+      return true;
+    }),
     body('maxParticipants').isInt({ min: 1 }),
     body('statut').optional().isIn(['PLANNED', 'ACTIVE', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
   ],
@@ -196,7 +199,10 @@ router.put(
     body('prerequis').optional().isString(),
     body('modules').optional().isString(),
     body('duree').optional().isString().notEmpty(),
-    body('prix').optional().isDecimal(),
+    body('prix').optional().isDecimal().custom((value) => {
+      if (parseFloat(value) < 0) throw new Error('Le prix doit être positif ou nul.');
+      return true;
+    }),
     body('maxParticipants').optional().isInt({ min: 1 }),
     body('statut').optional().isIn(['PLANNED', 'ACTIVE', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
   ],

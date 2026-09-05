@@ -78,7 +78,7 @@ router.get(
   '/:id',
   authMiddleware,
   rbacMiddleware('admin'),
-  [param('id').isString()],
+  [param('id').notEmpty().matches(/^FAC-\d{3,}$/)],
   validate,
   getFactureById
 );
@@ -119,8 +119,14 @@ router.post(
     body('client').isString().notEmpty(),
     body('formationId').isInt(),
     body('sessionId').optional({ nullable: true }).isInt(),
-    body('montant').isDecimal(),
-    body('tva').optional().isDecimal(),
+    body('montant').isDecimal().custom((value) => {
+      if (parseFloat(value) <= 0) throw new Error('Le montant doit être positif.');
+      return true;
+    }),
+    body('tva').optional().isDecimal().custom((value) => {
+      if (parseFloat(value) < 0) throw new Error('La TVA ne peut pas être négative.');
+      return true;
+    }),
     body('date').isISO8601(),
     body('statut').optional().isIn(['PAYEE', 'EN_ATTENTE', 'EN_RETARD', 'ANNULEE']),
     body('datePaiement').optional().isISO8601(),
@@ -165,10 +171,16 @@ router.put(
   authMiddleware,
   rbacMiddleware('admin'),
   [
-    param('id').isString(),
+    param('id').notEmpty().matches(/^FAC-\d{3,}$/),
     body('client').optional().isString(),
-    body('montant').optional().isDecimal(),
-    body('tva').optional().isDecimal(),
+    body('montant').optional().isDecimal().custom((value) => {
+      if (parseFloat(value) <= 0) throw new Error('Le montant doit être positif.');
+      return true;
+    }),
+    body('tva').optional().isDecimal().custom((value) => {
+      if (parseFloat(value) < 0) throw new Error('La TVA ne peut pas être négative.');
+      return true;
+    }),
     body('statut').optional().isIn(['PAYEE', 'EN_ATTENTE', 'EN_RETARD', 'ANNULEE']),
     body('datePaiement').optional().isISO8601(),
   ],
@@ -199,7 +211,7 @@ router.delete(
   '/:id',
   authMiddleware,
   rbacMiddleware('admin'),
-  [param('id').isString()],
+  [param('id').notEmpty().matches(/^FAC-\d{3,}$/)],
   validate,
   deleteFacture
 );

@@ -83,7 +83,8 @@ router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getReclama
 router.get(
   '/:id',
   authMiddleware,
-  [param('id').isString()],
+  rbacMiddleware('admin', 'formateur', 'participant'),
+  [param('id').isString().notEmpty().isLength({ max: 20 })],
   validate,
   getReclamationById
 );
@@ -128,7 +129,7 @@ router.post(
     body('type').isIn(['LOGISTIQUE', 'PEDAGOGIE', 'RESTAURATION', 'AUTRE']),
     body('priorite').isIn(['HAUTE', 'MOYENNE', 'BASSE']),
     body('titre').optional().isString(),
-    body('description').isString(),
+    body('description').isString().notEmpty(),
     body('centre').optional().isString(),
     body('date').isISO8601(),
   ],
@@ -170,10 +171,10 @@ router.put(
   authMiddleware,
   rbacMiddleware('admin'),
   [
-    param('id').isString(),
+    param('id').isString().notEmpty().isLength({ max: 20 }),
     body('statut').optional().isIn(['OUVERT', 'EN_COURS', 'RESOLU', 'CLOS']),
     body('priorite').optional().isIn(['HAUTE', 'MOYENNE', 'BASSE']),
-    body('description').optional().isString(),
+    body('description').optional().isString().notEmpty(),
   ],
   validate,
   updateReclamation
@@ -202,7 +203,7 @@ router.delete(
   '/:id',
   authMiddleware,
   rbacMiddleware('admin'),
-  [param('id').isString()],
+  [param('id').isString().notEmpty().isLength({ max: 20 })],
   validate,
   deleteReclamation
 );

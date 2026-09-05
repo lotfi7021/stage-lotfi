@@ -77,6 +77,7 @@ router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getCertifi
 router.get(
   '/:id',
   authMiddleware,
+  rbacMiddleware('admin', 'formateur', 'participant'),
   [param('id').isInt()],
   validate,
   getCertificationById

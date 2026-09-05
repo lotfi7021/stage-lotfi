@@ -75,6 +75,34 @@ exports.getSupportById = async (req, res, next) => {
       return res.status(404).json({ error: 'Support introuvable.' });
     }
 
+    if (req.user.role === 'participant') {
+      const inscription = await prisma.inscription.findUnique({
+        where: {
+          sessionId_participantId: {
+            sessionId: support.sessionId,
+            participantId: req.user.id,
+          },
+        },
+      });
+      if (!inscription) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+      }
+    }
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      const session = await prisma.session.findUnique({
+        where: { id: support.sessionId },
+        select: { formateurId: true },
+      });
+      if (!formateur || !session || session.formateurId !== formateur.id) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+      }
+    }
+
     res.status(200).json({ success: true, support });
   } catch (err) {
     next(err);
@@ -83,16 +111,18 @@ exports.getSupportById = async (req, res, next) => {
 
 exports.createSupport = async (req, res, next) => {
   try {
-    const { sessionId, nom, chemin, categorie, type, taille, uploaderId } = req.body;
+    const { sessionId, nom, chemin, categorie, type, taille } = req.body;
+
+    let uploaderId;
+    if (req.user.role === 'admin') {
+      uploaderId = req.body.uploaderId || req.user.id;
+    } else {
+      uploaderId = req.user.id;
+    }
 
     const session = await prisma.session.findUnique({ where: { id: Number(sessionId) } });
     if (!session) {
       return res.status(404).json({ error: 'Session introuvable.' });
-    }
-
-    const uploader = await prisma.utilisateur.findUnique({ where: { id: Number(uploaderId) } });
-    if (!uploader) {
-      return res.status(404).json({ error: 'Utilisateur introuvable.' });
     }
 
     const support = await prisma.supportFormation.create({

@@ -120,13 +120,19 @@ exports.createSession = async (req, res, next) => {
       return res.status(404).json({ error: 'Formateur introuvable.' });
     }
 
+    if (formateur.disponibilites === false) {
+      return res.status(400).json({ error: 'Ce formateur n\'est pas disponible actuellement.' });
+    }
+
+    const heureValue = heure ? (heure.length === 5 ? `${heure}:00` : heure) : null;
+
     const session = await prisma.session.create({
       data: {
         formationId: Number(formationId),
         formateurId: Number(formateurId),
         dateDebut: new Date(dateDebut),
         dateFin: new Date(dateFin),
-        heure: heure ? new Date(heure) : null,
+        heure: heureValue,
         lieu,
         statut: statut || 'PENDING',
         maxParticipants: maxParticipants ? Number(maxParticipants) : null,
@@ -181,7 +187,12 @@ exports.updateSession = async (req, res, next) => {
       if (!formateur) {
         return res.status(404).json({ error: 'Formateur introuvable.' });
       }
+      if (formateur.disponibilites === false) {
+        return res.status(400).json({ error: 'Ce formateur n\'est pas disponible actuellement.' });
+      }
     }
+
+    const heureValue = heure !== undefined ? (heure ? (heure.length === 5 ? `${heure}:00` : heure) : null) : undefined;
 
     const session = await prisma.session.update({
       where: { id: Number(id) },
@@ -190,7 +201,7 @@ exports.updateSession = async (req, res, next) => {
         ...(formateurId && { formateurId: Number(formateurId) }),
         ...(dateDebut && { dateDebut: new Date(dateDebut) }),
         ...(dateFin && { dateFin: new Date(dateFin) }),
-        ...(heure !== undefined && { heure: heure ? new Date(heure) : null }),
+        ...(heureValue !== undefined && { heure: heureValue }),
         ...(lieu && { lieu }),
         ...(statut && { statut }),
         ...(maxParticipants !== undefined && { maxParticipants: maxParticipants ? Number(maxParticipants) : null }),

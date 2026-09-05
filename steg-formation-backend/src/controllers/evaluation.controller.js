@@ -9,6 +9,22 @@ exports.getEvaluations = async (req, res, next) => {
 
     const where = {};
 
+    if (req.user.role === 'participant') {
+      where.participantId = req.user.id;
+    }
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      if (formateur) {
+        where.session = { formateurId: formateur.id };
+      } else {
+        where.sessionId = -1;
+      }
+    }
+
     if (search) {
       where.OR = [
         { participant: { nom: { contains: search } } },
@@ -19,7 +35,7 @@ exports.getEvaluations = async (req, res, next) => {
 
     if (type) where.type = type;
     if (sessionId) where.sessionId = Number(sessionId);
-    if (participantId) where.participantId = Number(participantId);
+    if (participantId && req.user.role !== 'participant') where.participantId = Number(participantId);
     if (statut) where.statut = statut;
 
     const [evaluations, total] = await Promise.all([
@@ -80,6 +96,20 @@ exports.getEvaluationById = async (req, res, next) => {
       return res.status(404).json({ error: 'Évaluation introuvable.' });
     }
 
+    if (req.user.role === 'participant' && evaluation.participantId !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé.' });
+    }
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      if (!formateur || evaluation.session.formateur.id !== formateur.id) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+      }
+    }
+
     res.status(200).json({ success: true, evaluation });
   } catch (err) {
     next(err);
@@ -93,6 +123,19 @@ exports.createEvaluation = async (req, res, next) => {
     const session = await prisma.session.findUnique({ where: { id: Number(sessionId) } });
     if (!session) {
       return res.status(404).json({ error: 'Session introuvable.' });
+    }
+
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+        select: { id: true },
+      });
+      if (!formateur) {
+        return res.status(404).json({ error: 'Profil formateur introuvable.' });
+      }
+      if (session.formateurId !== formateur.id) {
+        return res.status(403).json({ error: 'Vous ne pouvez créer des évaluations que pour vos propres sessions.' });
+      }
     }
 
     const participant = await prisma.utilisateur.findUnique({ where: { id: Number(participantId) } });
