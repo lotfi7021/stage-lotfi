@@ -15,16 +15,15 @@ import Parametres from './pages/admin/Parametres';
 // Pages Formations
 import ListeDesFormations from './pages/formations/ListeDesFormations';
 import GestionDesFormationsAjout from './pages/formations/GestionDesFormationsAjout';
-import ModificationFormation from './pages/formations/ModificationFormation';
 import DetailsFormation from './pages/formations/DetailsFormation';
 import Catalogue from './pages/formations/Catalogue';
 import Planning from './pages/formations/Planning';
 
 // Pages Trainers (Formateurs)
 import FormateurDashboard from './pages/trainers/FormateurDashboard';
-import FormateurPresences from './pages/trainers/FormateurPresences';
 import FormateurEvaluations from './pages/trainers/FormateurEvaluations';
 import FormateurPlanning from './pages/trainers/FormateurPlanning';
+import FormateurCertifications from './pages/trainers/FormateurCertifications';
 import Trainers from './pages/trainers/Trainers';
 
 // Pages Participants
@@ -35,7 +34,6 @@ import ParticipantCertificats from './pages/participants/ParticipantCertificats'
 // Pages Évaluations
 import Evaluations from './pages/evaluations/Evaluations';
 import Certifications from './pages/evaluations/Certifications';
-import Presences from './pages/evaluations/Presences';
 
 // Pages Documents
 import Reclamations from './pages/documents/Reclamations';
@@ -142,13 +140,16 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/formations" element={<ListeDesFormations />} />
             <Route path="/formations/ajout" element={<GestionDesFormationsAjout />} />
-            <Route path="/formations/modifier/:id" element={<ModificationFormation />} />
-            <Route path="/formations/modifier" element={<ModificationFormation />} />
             <Route path="/formations/:id" element={<DetailsFormation />} />
             <Route path="/participants" element={<GestionDesParticipants />} />
             <Route path="/gestion-des-roles" element={<GestionDesRoles />} />
             <Route path="/trainers" element={<Trainers />} />
             <Route path="/finance" element={<Finance />} />
+            <Route path="/certifications" element={<Certifications />} />
+          </Route>
+
+          {/* Routes partagées (tous les rôles) */}
+          <Route element={<RoleBasedRoute allowedRoles={['admin', 'formateur', 'participant']} />}>
             <Route path="/parametres" element={<Parametres />} />
           </Route>
 
@@ -156,18 +157,16 @@ export default function App() {
           <Route element={<RoleBasedRoute allowedRoles={['admin', 'formateur']} />}>
             <Route path="/catalogue" element={<Catalogue />} />
             <Route path="/planning" element={<Planning />} />
-            <Route path="/presences" element={<Presences />} />
             <Route path="/evaluations" element={<Evaluations />} />
-            <Route path="/certifications" element={<Certifications />} />
             <Route path="/reclamations" element={<Reclamations />} />
           </Route>
 
           {/* Routes Formateur */}
           <Route element={<RoleBasedRoute allowedRoles={['formateur']} />}>
             <Route path="/formateur/dashboard" element={<FormateurDashboard />} />
-            <Route path="/formateur/presences" element={<FormateurPresences />} />
             <Route path="/formateur/evaluations" element={<FormateurEvaluations />} />
             <Route path="/formateur/planning" element={<FormateurPlanning />} />
+            <Route path="/formateur/certifications" element={<FormateurCertifications />} />
           </Route>
 
           {/* Routes Participant */}

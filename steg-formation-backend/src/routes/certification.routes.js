@@ -111,7 +111,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  rbacMiddleware('admin'),
+  rbacMiddleware('formateur'),
   [
     body('participantId').isInt(),
     body('formationId').isInt(),

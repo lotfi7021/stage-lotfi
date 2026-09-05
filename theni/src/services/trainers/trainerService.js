@@ -53,41 +53,6 @@ class TrainerService {
     return { success: true, data: data.sessions || [] };
   }
 
-  async getSessionPresences(sessionId, date = null) {
-    const params = {};
-    if (date) params.date = date;
-
-    const { data } = await api.get(`/presences/session/${sessionId}`, { params });
-    return {
-      success: true,
-      data: data.presences || [],
-      stats: data.stats || {},
-      total: data.total || 0,
-    };
-  }
-
-  async markAttendance(sessionId, date, attendanceData) {
-    const { data } = await api.post('/presences/bulk', {
-      sessionId: parseInt(sessionId),
-      date,
-      presences: attendanceData,
-    });
-    return {
-      success: true,
-      message: data.message || 'Présences enregistrées avec succès',
-      count: data.count || 0,
-    };
-  }
-
-  async updatePresence(presenceId, presenceData) {
-    const { data } = await api.put(`/presences/${presenceId}`, presenceData);
-    return {
-      success: true,
-      data: data.presence,
-      message: data.message || 'Présence mise à jour'
-    };
-  }
-
   async getSessionEvaluations(sessionId) {
     return { success: true, data: [] };
   }

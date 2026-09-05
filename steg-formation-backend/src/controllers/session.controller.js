@@ -30,7 +30,16 @@ exports.getSessions = async (req, res, next) => {
     }
 
     if (formateurId) {
-      where.formateurId = Number(formateurId);
+      const utilisateurId = Number(formateurId);
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId },
+        select: { id: true },
+      });
+      if (formateur) {
+        where.formateurId = formateur.id;
+      } else {
+        where.formateurId = -1;
+      }
     }
 
     const [sessions, total] = await Promise.all([
@@ -76,7 +85,7 @@ exports.getSessionById = async (req, res, next) => {
         formateur: {
           select: { id: true, specialite: true, utilisateur: { select: { nom: true, prenom: true, email: true } } },
         },
-        _count: { select: { inscriptions: true, presences: true, evaluations: true } },
+        _count: { select: { inscriptions: true, evaluations: true } },
       },
     });
 

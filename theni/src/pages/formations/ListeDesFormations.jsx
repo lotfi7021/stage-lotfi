@@ -118,7 +118,7 @@ export default function ListeDesFormations() {
 
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="w-full text-left border-collapse min-w-[1100px]">
             <thead>
               <tr className="bg-surface-container-low border-b border-outline-variant">
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">ID</th>
@@ -127,15 +127,16 @@ export default function ListeDesFormations() {
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Catégorie</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Durée</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Prix</th>
+                <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Max Participants</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Statut</th>
                 <th className="px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-variant">
               {loading ? (
-                <tr><td className="px-6 py-8 text-center text-on-surface-variant" colSpan={8}>Chargement...</td></tr>
+                <tr><td className="px-6 py-8 text-center text-on-surface-variant" colSpan={9}>Chargement...</td></tr>
               ) : formations.length === 0 ? (
-                <tr><td className="px-6 py-8 text-center text-on-surface-variant" colSpan={8}>Aucune formation trouvée.</td></tr>
+                <tr><td className="px-6 py-8 text-center text-on-surface-variant" colSpan={9}>Aucune formation trouvée.</td></tr>
               ) : formations.map((f) => (
                 <tr key={f.id} className="hover:bg-surface-container-low transition-colors">
                   <td className="px-6 py-4 font-label-md text-primary font-bold">#{f.id}</td>
@@ -153,6 +154,7 @@ export default function ListeDesFormations() {
                   <td className="px-6 py-4 text-body-md text-on-surface whitespace-nowrap font-medium">
                     {f.prix ? `${Number(f.prix).toFixed(2)} TND` : '—'}
                   </td>
+                  <td className="px-6 py-4 text-body-md text-on-surface text-center">{f.maxParticipants || '—'}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded text-label-sm font-semibold uppercase tracking-wide ${STATUT_BADGE[f.statut] || ''}`}>
                       {f.statut}
@@ -161,9 +163,6 @@ export default function ListeDesFormations() {
                   <td className="px-6 py-4 text-right">
                     <button className="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Voir" onClick={() => navigate(`/formations/${f.id}`)}>
                       <Icon name="visibility" className="text-[18px]" />
-                    </button>
-                    <button className="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Modifier" onClick={() => navigate(`/formations/modifier/${f.id}`)}>
-                      <Icon name="edit" className="text-[18px]" />
                     </button>
                     <button className="p-2 text-on-surface-variant hover:text-error transition-colors" title="Supprimer" onClick={() => handleDelete(f)}>
                       <Icon name="delete" className="text-[18px]" />

@@ -22,9 +22,6 @@ export default function Certifications() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ participantId: '', formationId: '', sessionId: '', dateEmission: '' });
-  const [creating, setCreating] = useState(false);
 
   const fetchCertifications = async () => {
     try {
@@ -45,31 +42,6 @@ export default function Certifications() {
   useEffect(() => {
     fetchCertifications();
   }, [page, search]);
-
-  const updateForm = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    try {
-      setCreating(true);
-      await certificationService.createCertification({
-        participantId: Number(form.participantId),
-        formationId: Number(form.formationId),
-        sessionId: Number(form.sessionId),
-        dateEmission: form.dateEmission,
-      });
-      setForm({ participantId: '', formationId: '', sessionId: '', dateEmission: '' });
-      setModalOpen(false);
-      fetchCertifications();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erreur lors de la création');
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const filtered = certifications.filter((item) => {
     if (!date) return true;
@@ -195,61 +167,9 @@ export default function Certifications() {
             </div>
             <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl" />
           </div>
-
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 shadow-ambient">
-            <h3 className="font-headline-md text-headline-md text-on-surface mb-4">Générer Rapide</h3>
-            <p className="font-body-md text-body-md text-on-surface-variant mb-4">
-              Créez un nouveau certificat manuellement ou par lot.
-            </p>
-            <button
-              type="button"
-              className="w-full py-2 bg-primary-container text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary transition-colors flex justify-center items-center gap-2"
-              onClick={() => setModalOpen(true)}
-            >
-              <Icon name="add_circle" />
-              Nouveau Certificat
-            </button>
-          </div>
         </div>
       </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/60" onClick={() => setModalOpen(false)}>
-          <div className="w-full max-w-lg bg-surface-container-lowest rounded-xl shadow-ambient border border-outline-variant p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline-md text-headline-md text-on-background">Nouveau Certificat</h3>
-              <button className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg transition-colors" type="button" onClick={() => setModalOpen(false)}>
-                <Icon name="close" />
-              </button>
-            </div>
-            <form className="flex flex-col gap-4" onSubmit={handleSave}>
-              <div className="flex flex-col gap-1">
-                <label className="text-label-md text-on-surface" htmlFor="cert-participant">ID Participant</label>
-                <input id="cert-participant" className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all w-full" type="number" placeholder="Ex : 1" name="participantId" value={form.participantId} onChange={updateForm} required />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-label-md text-on-surface" htmlFor="cert-formation">ID Formation</label>
-                <input id="cert-formation" className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all w-full" type="number" placeholder="Ex : 1" name="formationId" value={form.formationId} onChange={updateForm} required />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-label-md text-on-surface" htmlFor="cert-session">ID Session</label>
-                <input id="cert-session" className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all w-full" type="number" placeholder="Ex : 1" name="sessionId" value={form.sessionId} onChange={updateForm} required />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-label-md text-on-surface" htmlFor="cert-emission">Date d'émission</label>
-                <input id="cert-emission" className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all w-full" type="date" name="dateEmission" value={form.dateEmission} onChange={updateForm} required />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button className="border border-outline text-on-surface-variant hover:bg-surface-container transition-colors rounded-xl px-6 py-3 text-label-md" type="button" onClick={() => setModalOpen(false)}>Annuler</button>
-                <button className="bg-primary-container text-on-primary hover:bg-[#004494] transition-colors rounded-xl px-6 py-3 text-label-md flex items-center gap-2" type="submit" disabled={creating}>
-                  <Icon name="add_circle" />
-                  {creating ? 'Création...' : 'Créer le certificat'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

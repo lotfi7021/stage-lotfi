@@ -23,6 +23,7 @@ const EMPTY_TRAINER_FORM = {
   nom: '',
   prenom: '',
   email: '',
+  motDePasse: '',
   specialite: '',
   qualifications: '',
   disponibilites: true
@@ -100,9 +101,6 @@ export default function Trainers() {
       setTrainers(prev => [...prev, data.formateur]);
       setTrainerForm(EMPTY_TRAINER_FORM);
       setTrainerModal(false);
-      if (data.temporaryPassword) {
-        alert(`Formateur créé avec succès.\n\nMot de passe temporaire : ${data.temporaryPassword}\n\nVeuillez le transmettre au formateur.`);
-      }
     } catch (err) {
       setError(errorMessage(err, 'Erreur lors de la création du formateur.'));
     } finally {
@@ -359,6 +357,12 @@ export default function Trainers() {
                   <input name="email" type="email" required value={trainerForm.email} onChange={updateTrainerForm}
                     className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim w-full"
                     placeholder="e.g. ahmed.bensalah@steg.com.tn" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-label-md text-on-surface">Mot de passe *</label>
+                  <input name="motDePasse" type="password" required minLength={6} value={trainerForm.motDePasse} onChange={updateTrainerForm}
+                    className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim w-full"
+                    placeholder="Min. 6 caractères" />
                 </div>
               </div>
               <div className="flex flex-col gap-1">

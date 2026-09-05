@@ -12,7 +12,6 @@ const ROLE_NAVIGATION = {
     { label: 'Users', icon: 'group', to: '/participants' },
     { label: 'Trainers', icon: 'psychology', to: '/trainers' },
     { label: 'Session Planning', icon: 'calendar_month', to: '/planning' },
-    { label: 'Attendance', icon: 'how_to_reg', to: '/presences' },
     { label: 'Evaluations', icon: 'star', to: '/evaluations' },
     { label: 'Certifications', icon: 'verified', to: '/certifications' },
     { label: 'Finance', icon: 'payments', to: '/finance' },
@@ -24,8 +23,8 @@ const ROLE_NAVIGATION = {
   formateur: [
     { label: 'My Dashboard', icon: 'dashboard', to: '/formateur/dashboard' },
     { label: 'My Planning', icon: 'calendar_view_week', to: '/formateur/planning' },
-    { label: 'Mark Attendance', icon: 'fact_check', to: '/formateur/presences' },
     { label: 'Enter Grades', icon: 'grade', to: '/formateur/evaluations' },
+    { label: 'My Certifications', icon: 'workspace_premium', to: '/formateur/certifications' },
     { label: 'Training Catalog', icon: 'menu_book', to: '/catalogue' },
     { label: 'Settings', icon: 'settings', to: '/parametres' }
   ],

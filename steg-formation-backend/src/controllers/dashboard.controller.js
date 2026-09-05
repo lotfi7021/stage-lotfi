@@ -10,8 +10,6 @@ exports.getDashboardStats = async (req, res, next) => {
       plannedSessions,
       completedSessions,
       totalInscriptions,
-      totalPresences,
-      presencesPresent,
       totalCertifications,
       totalFactures,
       facturesPayees,
@@ -25,8 +23,6 @@ exports.getDashboardStats = async (req, res, next) => {
       prisma.session.count({ where: { statut: { in: ['PENDING', 'CONFIRMED'] } } }),
       prisma.session.count({ where: { statut: 'COMPLETED' } }),
       prisma.inscription.count(),
-      prisma.presence.count(),
-      prisma.presence.count({ where: { statut: 'PRESENT' } }),
       prisma.certification.count({ where: { statut: 'VALIDE' } }),
       prisma.facture.count(),
       prisma.facture.count({ where: { statut: 'PAYEE' } }),
@@ -34,9 +30,7 @@ exports.getDashboardStats = async (req, res, next) => {
       prisma.facture.aggregate({ _sum: { montant: true }, where: { statut: 'PAYEE' } }),
     ]);
 
-    const satisfactionRate = totalPresences > 0
-      ? Math.round((presencesPresent / totalPresences) * 100 * 10) / 10
-      : 0;
+    const satisfactionRate = 0;
 
     const collectionRate = totalFactures > 0
       ? Math.round((facturesPayees / totalFactures) * 100 * 10) / 10
@@ -55,7 +49,6 @@ exports.getDashboardStats = async (req, res, next) => {
         plannedSessions,
         completedSessions,
         totalInscriptions,
-        totalPresences,
         totalCertifications,
         totalFactures,
         facturesPayees,

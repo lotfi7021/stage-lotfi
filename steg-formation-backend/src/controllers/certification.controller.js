@@ -10,6 +10,15 @@ exports.getCertifications = async (req, res, next) => {
 
     const where = {};
 
+    if (req.user.role === 'formateur') {
+      const formateur = await prisma.formateur.findUnique({
+        where: { utilisateurId: req.user.id },
+      });
+      if (formateur) {
+        where.formateurId = formateur.id;
+      }
+    }
+
     if (search) {
       where.OR = [
         { participant: { nom: { contains: search } } },
@@ -88,6 +97,13 @@ exports.createCertification = async (req, res, next) => {
   try {
     const { participantId, formationId, sessionId, dateEmission, dateExpiration, qrCode } = req.body;
 
+    const formateur = await prisma.formateur.findUnique({
+      where: { utilisateurId: req.user.id },
+    });
+    if (!formateur) {
+      return res.status(404).json({ error: 'Profil formateur introuvable.' });
+    }
+
     const participant = await prisma.utilisateur.findUnique({ where: { id: Number(participantId) } });
     if (!participant) {
       return res.status(404).json({ error: 'Participant introuvable.' });
@@ -103,6 +119,10 @@ exports.createCertification = async (req, res, next) => {
       return res.status(404).json({ error: 'Session introuvable.' });
     }
 
+    if (session.formateurId !== formateur.id) {
+      return res.status(403).json({ error: 'Vous ne pouvez créer des certificats que pour vos propres sessions.' });
+    }
+
     const reference = `CERT-${generateMatricule()}`;
 
     const certification = await prisma.certification.create({
@@ -111,6 +131,7 @@ exports.createCertification = async (req, res, next) => {
         participantId: Number(participantId),
         formationId: Number(formationId),
         sessionId: Number(sessionId),
+        formateurId: formateur.id,
         dateEmission: new Date(dateEmission),
         dateExpiration: dateExpiration ? new Date(dateExpiration) : null,
         qrCode: qrCode || null,
@@ -124,6 +145,9 @@ exports.createCertification = async (req, res, next) => {
         },
         session: {
           select: { id: true, dateDebut: true, dateFin: true, lieu: true },
+        },
+        formateur: {
+          include: { utilisateur: { select: { nom: true, prenom: true } } },
         },
       },
     });

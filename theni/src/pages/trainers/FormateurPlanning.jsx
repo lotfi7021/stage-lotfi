@@ -4,6 +4,22 @@ import trainerService from '../../services/trainers/trainerService';
 import participantService from '../../services/participants/participantService';
 import formationService from '../../services/formations/formationService';
 
+const STATUT_COLORS = {
+  PENDING: 'bg-blue-100 text-blue-700 border border-blue-200',
+  CONFIRMED: 'bg-blue-100 text-blue-700 border border-blue-200',
+  ONGOING: 'bg-green-100 text-green-700 border border-green-200',
+  COMPLETED: 'bg-gray-100 text-gray-600 border border-gray-200',
+  CANCELLED: 'bg-red-100 text-red-700 border border-red-200',
+};
+
+const STATUT_LABEL = {
+  PENDING: 'Planned',
+  CONFIRMED: 'Confirmed',
+  ONGOING: 'In Progress',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+};
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -36,7 +52,7 @@ export default function FormateurPlanning() {
             const inscriptions = inscriptionsRes.data || [];
             return {
               ...session,
-              formation: formationsMap[session.formation_id]?.titre || 'Unknown Formation',
+              formation: formationsMap[session.formationId]?.titre || session.formation?.titre || 'Unknown Formation',
               participantsCount: inscriptions.length
             };
           })
@@ -78,8 +94,8 @@ export default function FormateurPlanning() {
       const currentDay = new Date(year, month, day);
       
       const sessionsForDay = formateurSessions.filter(session => {
-        const startDate = new Date(session.date_debut);
-        const endDate = new Date(session.date_fin);
+        const startDate = new Date(session.dateDebut);
+        const endDate = new Date(session.dateFin);
         return currentDay >= startDate && currentDay <= endDate;
       });
 
@@ -117,8 +133,8 @@ export default function FormateurPlanning() {
       currentDay.setDate(startOfWeek.getDate() + i);
       
       const sessionsForDay = formateurSessions.filter(session => {
-        const startDate = new Date(session.date_debut);
-        const endDate = new Date(session.date_fin);
+        const startDate = new Date(session.dateDebut);
+        const endDate = new Date(session.dateFin);
         return currentDay >= startDate && currentDay <= endDate;
       });
 
@@ -153,16 +169,7 @@ export default function FormateurPlanning() {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'Planned':
-        return 'bg-secondary-container text-on-secondary-container border-secondary';
-      case 'In Progress':
-        return 'bg-tertiary-container text-on-tertiary-container border-tertiary';
-      case 'Completed':
-        return 'bg-success-container text-on-success-container border-success';
-      default:
-        return 'bg-surface-variant text-on-surface-variant border-outline';
-    }
+    return STATUT_COLORS[status] || 'bg-surface-variant text-on-surface-variant border-outline';
   };
 
   const days = viewMode === 'month' ? getDaysInMonth(currentDate) : getWeekDays(currentDate);
@@ -335,7 +342,7 @@ export default function FormateurPlanning() {
                 <div>
                   <div className="text-label-sm text-on-surface-variant mb-1">Duration</div>
                   <div className="text-body-md text-on-surface">
-                    {new Date(selectedSession.date_debut).toLocaleDateString()} - {new Date(selectedSession.date_fin).toLocaleDateString()}
+                    {new Date(selectedSession.dateDebut).toLocaleDateString()} - {new Date(selectedSession.dateFin).toLocaleDateString()}
                   </div>
                 </div>
 
@@ -358,14 +365,8 @@ export default function FormateurPlanning() {
 
                 <div>
                   <div className="text-label-sm text-on-surface-variant mb-1">Status</div>
-                  <span className={`px-3 py-1 rounded-full text-label-sm font-medium ${
-                    selectedSession.statut === 'Planned' 
-                      ? 'bg-secondary-container text-on-secondary-container'
-                      : selectedSession.statut === 'In Progress'
-                      ? 'bg-tertiary-container text-on-tertiary-container'
-                      : 'bg-success-container text-on-success-container'
-                  }`}>
-                    {selectedSession.statut}
+                  <span className={`px-3 py-1 rounded-full text-label-sm font-medium ${STATUT_COLORS[selectedSession.statut] || ''}`}>
+                    {STATUT_LABEL[selectedSession.statut] || selectedSession.statut}
                   </span>
                 </div>
               </div>

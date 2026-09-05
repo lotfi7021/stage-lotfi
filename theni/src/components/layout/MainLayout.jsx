@@ -12,7 +12,6 @@ const TITLES = {
   '/gestion-des-roles': 'Gestion des Rôles',
   '/trainers': 'Gestion des Formateurs',
   '/planning': 'Planning',
-  '/presences': 'Gestion des Présences',
   '/evaluations': 'Évaluations',
   '/certifications': 'Certifications',
   '/finance': 'Gestion Financière',
@@ -25,8 +24,8 @@ const TITLES = {
   // Routes Formateur
   '/formateur/dashboard': 'Mon Tableau de Bord',
   '/formateur/planning': 'Mon Planning',
-  '/formateur/presences': 'Gestion des Présences',
   '/formateur/evaluations': 'Saisie des Évaluations',
+  '/formateur/certifications': 'Mes Certifications',
 
   // Routes Participant  
   '/participant/dashboard': 'Mon Espace Apprenant',

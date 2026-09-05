@@ -26,7 +26,7 @@ export default function FormateurDashboard() {
             const inscriptions = inscriptionsRes.data || [];
             return {
               ...session,
-              formation: formationsMap[session.formationId || session.formation_id]?.titre || 'Unknown Formation',
+              formation: formationsMap[session.formationId]?.titre || session.formation?.titre || 'Unknown Formation',
               participantsCount: inscriptions.length
             };
           })
@@ -52,21 +52,21 @@ export default function FormateurDashboard() {
   // Prochaines sessions (les 3 plus proches)
   const prochainesSessions = formateurSessions
     .filter(s => s.statut === 'PENDING' || s.statut === 'CONFIRMED')
-    .sort((a, b) => new Date(a.dateDebut || a.date_debut) - new Date(b.dateDebut || b.date_debut))
+    .sort((a, b) => new Date(a.dateDebut) - new Date(b.dateDebut))
     .slice(0, 3);
 
   // Activité récente dérivée des sessions
   const activiteRecente = formateurSessions
     .filter(s => s.statut === 'COMPLETED' || s.statut === 'ONGOING')
-    .sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut))
+    .sort((a, b) => new Date(b.dateDebut) - new Date(a.dateDebut))
     .slice(0, 3)
     .map((s, idx) => ({
       id: s.id || idx,
-      type: s.statut === 'COMPLETED' ? 'evaluation' : 'presence',
+      type: s.statut === 'COMPLETED' ? 'evaluation' : 'inscription',
       text: s.statut === 'COMPLETED'
         ? `Session "${s.formation}" terminée`
         : `Session "${s.formation}" en cours`,
-      time: new Date(s.date_debut).toLocaleDateString('fr-FR'),
+      time: new Date(s.dateDebut).toLocaleDateString('fr-FR'),
       icon: s.statut === 'COMPLETED' ? 'check_circle' : 'play_circle',
     }));
 
@@ -160,7 +160,7 @@ export default function FormateurDashboard() {
                         {session.formation}
                       </h4>
                       <p className="text-body-sm text-on-surface-variant">
-                        {new Date(session.dateDebut || session.date_debut).toLocaleDateString('fr-FR')} • {session.lieu}
+                        {new Date(session.dateDebut).toLocaleDateString('fr-FR')} • {session.lieu}
                       </p>
                     </div>
                     <div className="text-right">

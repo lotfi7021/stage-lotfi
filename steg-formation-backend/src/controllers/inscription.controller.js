@@ -270,18 +270,7 @@ exports.deleteInscription = async (req, res, next) => {
       return res.status(404).json({ error: 'Inscription introuvable.' });
     }
 
-    // Vérifier s'il y a des présences liées (même session + même participant)
-    const presenceExistante = await prisma.presence.findFirst({
-      where: {
-        sessionId: inscription.sessionId,
-        participantId: inscription.participantId,
-      },
-    });
-
-    if (presenceExistante) {
-      return res.status(400).json({ error: 'Des présences sont liées à cette inscription. Impossible de supprimer.' });
-    }
-
+    // Vérifier s'il y a des évaluations ou certifications liées
     await prisma.inscription.delete({ where: { id: Number(id) } });
 
     res.status(200).json({ success: true, message: 'Inscription supprimée avec succès.' });

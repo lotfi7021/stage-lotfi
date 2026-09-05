@@ -59,7 +59,7 @@ const validate = require('../middleware/validate.middleware');
  *       403:
  *         description: Forbidden (rôle admin ou formateur requis)
  */
-router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getFormations);
+router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur', 'participant'), getFormations);
 
 /**
  * @swagger
@@ -87,7 +87,7 @@ router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getFormati
 router.get(
   '/:id',
   authMiddleware,
-  rbacMiddleware('admin', 'formateur'),
+  rbacMiddleware('admin', 'formateur', 'participant'),
   [param('id').isInt()],
   validate,
   getFormationById

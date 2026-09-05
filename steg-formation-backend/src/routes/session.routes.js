@@ -65,7 +65,7 @@ const validate = require('../middleware/validate.middleware');
  *       403:
  *         description: Forbidden
  */
-router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getSessions);
+router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur', 'participant'), getSessions);
 
 /**
  * @swagger

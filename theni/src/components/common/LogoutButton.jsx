@@ -8,8 +8,15 @@ const LogoutButton = () => {
   };
 
   const handleClearStorage = () => {
-    localStorage.clear();
-    window.location.href = '/connexion';
+    const keysToKeep = ['userToken', 'currentUser', 'currentUserId', 'rememberMe'];
+    const keysToRemove = [];
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && !keysToKeep.includes(key)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
   };
 
   return (

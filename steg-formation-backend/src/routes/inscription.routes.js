@@ -62,7 +62,7 @@ const validate = require('../middleware/validate.middleware');
  *       403:
  *         description: Forbidden
  */
-router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur'), getInscriptions);
+router.get('/', authMiddleware, rbacMiddleware('admin', 'formateur', 'participant'), getInscriptions);
 
 /**
  * @swagger
@@ -219,8 +219,6 @@ router.put(
  *     responses:
  *       200:
  *         description: Inscription supprimée
- *       400:
- *         description: Des présences sont liées
  *       404:
  *         description: Introuvable
  */

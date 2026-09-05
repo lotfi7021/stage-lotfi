@@ -36,6 +36,10 @@ export default function Planning() {
     lieu: '',
   });
   const [success, setSuccess] = useState('');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [listModalOpen, setListModalOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -137,6 +141,28 @@ export default function Planning() {
     }
   };
 
+  const openDeleteModal = (session) => {
+    setSessionToDelete(session);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!sessionToDelete) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await api.delete(`/sessions/${sessionToDelete.id}`);
+      setDeleteModalOpen(false);
+      setSessionToDelete(null);
+      setSuccess('Session supprimée avec succès !');
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Erreur lors de la suppression.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const cells = buildCells();
 
   const upcomingSessions = useMemo(() => {
@@ -153,12 +179,20 @@ export default function Planning() {
           <h2 className="font-headline-lg text-headline-lg text-on-background font-bold mb-2">Planning des Sessions</h2>
           <p className="font-body-md text-on-surface-variant">Calendrier des sessions de formation STEG.</p>
         </div>
-        <button
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary-container text-on-primary rounded-xl font-label-md hover:bg-[#004494] transition-colors shadow-sm"
-          type="button" onClick={() => setModalOpen(true)}
-        >
-          <Icon name="add" /> Nouvelle Session
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            className="flex items-center gap-2 px-5 py-2.5 border border-outline-variant text-on-surface rounded-xl font-label-md hover:bg-surface-container-low transition-colors shadow-sm"
+            type="button" onClick={() => setListModalOpen(true)}
+          >
+            <Icon name="list" /> Liste des Sessions
+          </button>
+          <button
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary-container text-on-primary rounded-xl font-label-md hover:bg-[#004494] transition-colors shadow-sm"
+            type="button" onClick={() => setModalOpen(true)}
+          >
+            <Icon name="add" /> Nouvelle Session
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -198,8 +232,16 @@ export default function Planning() {
                   <div key={day} className={`min-h-[100px] p-2 text-label-sm text-on-surface transition-colors ${isToday(day) ? 'bg-primary/10 ring-1 ring-inset ring-primary' : isWeekend(day) ? 'bg-surface-container-low/40' : 'bg-surface-container-lowest hover:bg-surface-container-low'}`}>
                     <span className={`font-medium ${isToday(day) ? 'text-primary font-bold' : ''}`}>{day}</span>
                     {events.map((event) => (
-                      <div key={event.id} className="mt-1 p-1 bg-primary-container text-on-primary rounded text-xs truncate" title={getFormationTitre(event)}>
-                        {getFormationTitre(event)}
+                      <div key={event.id} className="mt-1 p-1 bg-primary-container text-on-primary rounded text-xs truncate flex items-center justify-between" title={getFormationTitre(event)}>
+                        <span className="truncate">{getFormationTitre(event)}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openDeleteModal(event); }}
+                          className="ml-1 p-0.5 hover:text-red-200 transition-colors shrink-0"
+                          title="Supprimer"
+                        >
+                          <Icon name="close" size={10} />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -225,9 +267,19 @@ export default function Planning() {
                     <span className="text-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">
                       {new Date(session.dateDebut).toLocaleDateString('fr-FR')}
                     </span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${STATUT_COLORS[session.statut] || ''}`}>
-                      {session.statut}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${STATUT_COLORS[session.statut] || ''}`}>
+                        {session.statut}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(session)}
+                        className="p-1 text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Supprimer la session"
+                      >
+                        <Icon name="delete" size={16} />
+                      </button>
+                    </div>
                   </div>
                   <h4 className="font-label-md text-on-surface font-semibold truncate mt-1">{getFormationTitre(session)}</h4>
                   <p className="text-label-sm text-on-surface-variant flex items-center gap-1 mt-1">
@@ -298,6 +350,101 @@ export default function Planning() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deleteModalOpen && sessionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/60" onClick={() => { setDeleteModalOpen(false); setSessionToDelete(null); }}>
+          <div className="w-full max-w-md bg-surface-container-lowest rounded-xl shadow-ambient border border-outline-variant p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-headline-md text-on-background">Supprimer la session</h3>
+              <button type="button" className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg transition-colors" onClick={() => { setDeleteModalOpen(false); setSessionToDelete(null); }}>
+                <Icon name="close" />
+              </button>
+            </div>
+            <p className="text-body-md text-on-surface-variant mb-6">
+              Voulez-vous vraiment supprimer la session <strong>{getFormationTitre(sessionToDelete)}</strong> prévue le <strong>{new Date(sessionToDelete.dateDebut).toLocaleDateString('fr-FR')}</strong> ?
+            </p>
+            <p className="text-body-sm text-red-500 mb-4">Cette action est irréversible.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="border border-outline text-on-surface-variant hover:bg-surface-container transition-colors rounded-xl px-6 py-3 text-label-md"
+                onClick={() => { setDeleteModalOpen(false); setSessionToDelete(null); }}
+                disabled={deleting}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="bg-red-500 text-white hover:bg-red-600 transition-colors rounded-xl px-6 py-3 text-label-md flex items-center gap-2"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Suppression...' : <><Icon name="delete" /> Supprimer</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {listModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/60" onClick={() => setListModalOpen(false)}>
+          <div className="w-full max-w-4xl max-h-[80vh] bg-surface-container-lowest rounded-xl shadow-ambient border border-outline-variant flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-6 border-b border-outline-variant">
+              <h3 className="font-headline-md text-on-background">Liste des Sessions ({sessions.length})</h3>
+              <button type="button" className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg transition-colors" onClick={() => setListModalOpen(false)}>
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {sessions.length === 0 ? (
+                <p className="text-body-md text-on-surface-variant text-center py-8">Aucune session enregistrée.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-outline-variant">
+                        <th className="pb-3 text-label-md font-semibold text-on-surface-variant">Formation</th>
+                        <th className="pb-3 text-label-md font-semibold text-on-surface-variant">Formateur</th>
+                        <th className="pb-3 text-label-md font-semibold text-on-surface-variant">Date début</th>
+                        <th className="pb-3 text-label-md font-semibold text-on-surface-variant">Date fin</th>
+                        <th className="pb-3 text-label-md font-semibold text-on-surface-variant">Lieu</th>
+                        <th className="pb-3 text-label-md font-semibold text-on-surface-variant">Statut</th>
+                        <th className="pb-3 text-label-md font-semibold text-on-surface-variant text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sessions.map((session) => (
+                        <tr key={session.id} className="border-b border-outline-variant/50 hover:bg-surface-container-low transition-colors">
+                          <td className="py-3 text-body-sm text-on-surface font-medium">{getFormationTitre(session)}</td>
+                          <td className="py-3 text-body-sm text-on-surface-variant">{getFormateurNom(session)}</td>
+                          <td className="py-3 text-body-sm text-on-surface-variant">{new Date(session.dateDebut).toLocaleDateString('fr-FR')}</td>
+                          <td className="py-3 text-body-sm text-on-surface-variant">{new Date(session.dateFin).toLocaleDateString('fr-FR')}</td>
+                          <td className="py-3 text-body-sm text-on-surface-variant">{session.lieu}</td>
+                          <td className="py-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${STATUT_COLORS[session.statut] || ''}`}>
+                              {session.statut}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => { setListModalOpen(false); openDeleteModal(session); }}
+                              className="p-1.5 text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Supprimer"
+                            >
+                              <Icon name="delete" size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -24,11 +24,6 @@ export const API_CONFIG = {
     BY_PARTICIPANT: (participantId) => `/inscriptions/participant/${participantId}`,
   },
 
-  PRESENCES: {
-    LIST: '/presences',
-    BY_SESSION: (sessionId) => `/presences/session/${sessionId}`,
-  },
-
   FORMATEURS: {
     LIST: '/formateurs',
   },
